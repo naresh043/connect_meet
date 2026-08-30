@@ -1,16 +1,45 @@
 import { io } from "socket.io-client";
 
-const SOCKET_URL =
-  import.meta.env.VITE_SOCKET_URL ||
-  "http://localhost:5000";
+/*
+=====================================================
+SOCKET.IO SERVER URL
+=====================================================
+*/
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
+
+/*
+=====================================================
+CREATE SOCKET
+=====================================================
+*/
 
 export const createSocket = () => {
   console.log("🔌 Creating Socket.IO connection:", SOCKET_URL);
 
   const socket = io(SOCKET_URL, {
+    /*
+    ===============================================
+    DON'T CONNECT AUTOMATICALLY
+    ===============================================
+    */
+
     autoConnect: false,
 
-    transports: ["websocket"],
+    /*
+    ===============================================
+    TRANSPORT
+    ===============================================
+
+    Let Socket.IO negotiate the best transport.
+
+    We are intentionally NOT using:
+
+    transports: ["websocket"]
+
+    This is better while testing Render.
+    ===============================================
+    */
 
     reconnection: true,
 
@@ -21,34 +50,14 @@ export const createSocket = () => {
     reconnectionDelayMax: 5000,
 
     timeout: 20000,
-  });
 
-  socket.on("connect", () => {
-    console.log(
-      "✅ Socket connected:",
-      socket.id
-    );
-  });
+    /*
+    ===============================================
+    CREDENTIALS
+    ===============================================
+    */
 
-  socket.on("disconnect", (reason) => {
-    console.log(
-      "❌ Socket disconnected:",
-      reason
-    );
-  });
-
-  socket.on("connect_error", (error) => {
-    console.error(
-      "❌ Socket connection error:",
-      error.message
-    );
-  });
-
-  socket.on("reconnect_attempt", (attempt) => {
-    console.log(
-      "🔄 Reconnection attempt:",
-      attempt
-    );
+    withCredentials: true,
   });
 
   return socket;
