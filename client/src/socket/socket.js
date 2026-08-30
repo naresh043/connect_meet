@@ -1,45 +1,23 @@
 import { io } from "socket.io-client";
 
-/*
-=====================================================
-SOCKET.IO SERVER URL
-=====================================================
-*/
-
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
-
-/*
-=====================================================
-CREATE SOCKET
-=====================================================
-*/
 
 export const createSocket = () => {
   console.log("🔌 Creating Socket.IO connection:", SOCKET_URL);
 
   const socket = io(SOCKET_URL, {
-    /*
-    ===============================================
-    DON'T CONNECT AUTOMATICALLY
-    ===============================================
-    */
-
     autoConnect: false,
 
     /*
     ===============================================
-    TRANSPORT
+    IMPORTANT
     ===============================================
 
-    Let Socket.IO negotiate the best transport.
-
-    We are intentionally NOT using:
-
-    transports: ["websocket"]
-
-    This is better while testing Render.
+    Match the Render server transport.
     ===============================================
     */
+
+    transports: ["polling"],
 
     reconnection: true,
 
@@ -51,14 +29,10 @@ export const createSocket = () => {
 
     timeout: 20000,
 
-    /*
-    ===============================================
-    CREDENTIALS
-    ===============================================
-    */
-
     withCredentials: true,
   });
 
   return socket;
 };
+   
+

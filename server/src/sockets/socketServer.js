@@ -104,16 +104,9 @@
 const { Server } = require("socket.io");
 
 const meetingSocket = require("./meetingSocket");
-
 const signaling = require("./signaling");
 
 const initializeSocket = (server) => {
-  /*
-  =====================================================
-  CREATE SOCKET.IO SERVER
-  =====================================================
-  */
-
   const io = new Server(server, {
     cors: {
       origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -124,11 +117,12 @@ const initializeSocket = (server) => {
     },
 
     /*
-    Keep websocket as primary transport.
-    Socket.IO can still fall back if needed.
+    =====================================================
+    SOCKET.IO TRANSPORTS
+    =====================================================
     */
 
-    transports: ["websocket", "polling"],
+    transports: ["polling"],
   });
 
   /*
@@ -141,26 +135,26 @@ const initializeSocket = (server) => {
     console.log("🟢 Socket connected:", socket.id);
 
     /*
-      ===============================================
-      MEETING EVENTS
-      ===============================================
-      */
+    ===============================================
+    MEETING ROOM
+    ===============================================
+    */
 
     meetingSocket(io, socket);
 
     /*
-      ===============================================
-      WEBRTC SIGNALING
-      ===============================================
-      */
+    ===============================================
+    WEBRTC SIGNALING HELLO 
+    ===============================================
+    */
 
     signaling(io, socket);
 
     /*
-      ===============================================
-      DISCONNECT
-      ===============================================
-      */
+    ===============================================
+    DISCONNECT
+    ===============================================
+    */
 
     socket.on("disconnect", (reason) => {
       console.log("🔴 Socket disconnected:", socket.id, reason);
