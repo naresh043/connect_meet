@@ -573,17 +573,15 @@ const useWebRTC = (meetingId) => {
       try {
         console.log("🎥 Requesting camera and microphone...");
 
-        /*
-          Camera
-          */
-
         const stream = await navigator.mediaDevices.getUserMedia({
           video: true,
           audio: true,
         });
 
         if (!isMounted) {
-          stream.getTracks().forEach((track) => track.stop());
+          stream.getTracks().forEach((track) => {
+            track.stop();
+          });
 
           return;
         }
@@ -595,27 +593,25 @@ const useWebRTC = (meetingId) => {
         console.log("✅ Camera and microphone ready");
 
         /*
-          Socket
-          */
+      ===============================================
+      CREATE SOCKET ONLY ONCE
+      ===============================================
+      */
 
         const socket = createSocket();
 
         socketRef.current = socket;
 
         /*
-          =================================================
-          CONNECT
-          =================================================
-          */
+      ===============================================
+      SOCKET EVENTS
+      ===============================================
+      */
 
         socket.on("connect", () => {
           console.log("🔌 Socket connected:", socket.id);
 
           setIsConnected(true);
-
-          /*
-              Send user information
-              */
 
           socket.emit(SOCKET_EVENTS.JOIN_ROOM, {
             meetingId,
@@ -626,23 +622,8 @@ const useWebRTC = (meetingId) => {
           console.log("🚪 Joined meeting:", meetingId);
         });
 
-        /*
-          =================================================
-          EXISTING USERS
-          =================================================
-          */
-
         socket.on(SOCKET_EVENTS.EXISTING_USERS, ({ users }) => {
           console.log("👥 Existing users:", users);
-
-          /*
-              Existing user format:
-
-              {
-                socketId,
-                user
-              }
-              */
 
           users.forEach((participant) => {
             const remoteSocketId = participant.socketId;
@@ -653,37 +634,18 @@ const useWebRTC = (meetingId) => {
               return;
             }
 
-            /*
-                  Save user
-                  */
-
             setRemoteUsers((previous) => ({
               ...previous,
 
               [remoteSocketId]: remoteUser,
             }));
 
-            /*
-                  New participant
-                  creates OFFER
-                  */
-
             createPeerConnection(remoteSocketId, true);
           });
         });
 
-        /*
-          =================================================
-          USER JOINED
-          =================================================
-          */
-
         socket.on(SOCKET_EVENTS.USER_JOINED, ({ socketId, user }) => {
           console.log("👤 User joined:", socketId, user);
-
-          /*
-              Save user
-              */
 
           setRemoteUsers((previous) => ({
             ...previous,
@@ -691,48 +653,14 @@ const useWebRTC = (meetingId) => {
             [socketId]: user,
           }));
 
-          /*
-              IMPORTANT:
-
-              Existing participant DOES NOT
-              create offer.
-
-              New participant will create
-              offer from existing-users.
-              */
-
           createPeerConnection(socketId, false);
         });
 
-        /*
-          =================================================
-          OFFER
-          =================================================
-          */
-
         socket.on(SOCKET_EVENTS.OFFER, handleOffer);
-
-        /*
-          =================================================
-          ANSWER
-          =================================================
-          */
 
         socket.on(SOCKET_EVENTS.ANSWER, handleAnswer);
 
-        /*
-          =================================================
-          ICE
-          =================================================
-          */
-
         socket.on(SOCKET_EVENTS.ICE_CANDIDATE, handleIceCandidate);
-
-        /*
-          =================================================
-          USER LEFT
-          =================================================
-          */
 
         socket.on(SOCKET_EVENTS.USER_LEFT, ({ socketId }) => {
           console.log("👋 User left:", socketId);
@@ -740,17 +668,23 @@ const useWebRTC = (meetingId) => {
           removePeer(socketId);
         });
 
-        /*
-          =================================================
-          DISCONNECT
-          =================================================
-          */
-
-        socket.on(SOCKET_EVENTS.DISCONNECT, () => {
-          console.log("❌ Socket disconnected");
+        socket.on("disconnect", (reason) => {
+          console.log("❌ Socket disconnected:", reason);
 
           setIsConnected(false);
         });
+
+        socket.on("connect_error", (error) => {
+          console.error("❌ Socket connection error:", error.message);
+        });
+
+        /*
+      ===============================================
+      CONNECT SOCKET
+      ===============================================
+      */
+
+        socket.connect();
       } catch (error) {
         console.error("❌ Camera/Microphone error:", error);
       }
@@ -758,22 +692,32 @@ const useWebRTC = (meetingId) => {
 
     startMeeting();
 
-    /*
-    =====================================================
-    CLEANUP
-    =====================================================
-    */
-
     return () => {
       isMounted = false;
 
+      console.log("🧹 Cleaning up WebRTC...");
+
+      /*
+    ===============================================
+    SOCKET CLEANUP
+    ===============================================
+    */
+
       if (socketRef.current) {
         socketRef.current.emit(SOCKET_EVENTS.LEAVE_ROOM, meetingId);
+
+        socketRef.current.removeAllListeners();
 
         socketRef.current.disconnect();
 
         socketRef.current = null;
       }
+
+      /*
+    ===============================================
+    PEER CLEANUP
+    ===============================================
+    */
 
       Object.values(peerConnectionsRef.current).forEach((peerConnection) => {
         peerConnection.close();
@@ -782,6 +726,12 @@ const useWebRTC = (meetingId) => {
       peerConnectionsRef.current = {};
 
       pendingCandidatesRef.current = {};
+
+      /*
+    ===============================================
+    MEDIA CLEANUP
+    ===============================================
+    */
 
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => {

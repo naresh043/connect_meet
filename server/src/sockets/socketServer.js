@@ -101,23 +101,34 @@
 // };
 
 // module.exports = initializeSocket;
-
 const { Server } = require("socket.io");
 
 const meetingSocket = require("./meetingSocket");
+
 const signaling = require("./signaling");
 
 const initializeSocket = (server) => {
+  /*
+  =====================================================
+  CREATE SOCKET.IO SERVER
+  =====================================================
+  */
+
   const io = new Server(server, {
     cors: {
-      origin:
-        process.env.CLIENT_URL ||
-        "http://localhost:5173",
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
 
       methods: ["GET", "POST"],
 
       credentials: true,
     },
+
+    /*
+    Keep websocket as primary transport.
+    Socket.IO can still fall back if needed.
+    */
+
+    transports: ["websocket", "polling"],
   });
 
   /*
@@ -127,15 +138,33 @@ const initializeSocket = (server) => {
   */
 
   io.on("connection", (socket) => {
-    console.log(
-      `🔌 Socket connected: ${socket.id}`
-    );
+    console.log("🟢 Socket connected:", socket.id);
 
-    // Meeting room events
+    /*
+      ===============================================
+      MEETING EVENTS
+      ===============================================
+      */
+
     meetingSocket(io, socket);
 
-    // WebRTC signaling events
+    /*
+      ===============================================
+      WEBRTC SIGNALING
+      ===============================================
+      */
+
     signaling(io, socket);
+
+    /*
+      ===============================================
+      DISCONNECT
+      ===============================================
+      */
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔴 Socket disconnected:", socket.id, reason);
+    });
   });
 
   return io;
