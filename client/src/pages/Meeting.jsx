@@ -112,7 +112,7 @@ const Meeting = () => {
           {localStream && (
             <VideoTile
               stream={localStream}
-              name="You"
+              name={currentUser?.name || "You"}
               muted={true}
               isLocal={true}
             />
