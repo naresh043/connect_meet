@@ -1,18 +1,22 @@
 const { Server } = require("socket.io");
 
 const meetingSocket = require("./meetingSocket");
+
 const signaling = require("./signaling");
 
 const initializeSocket = (server) => {
+  // *Allowed frontend origins from environment variable*
+
+  const allowedOrigins = process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(",").map((url) => url.trim())
+    : ["http://localhost:5173"];
+
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
-
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
-
       credentials: true,
     },
-
     transports: ["polling"],
   });
 
@@ -20,26 +24,26 @@ const initializeSocket = (server) => {
     console.log("🟢 Socket connected:", socket.id);
 
     /*
-    ===============================================
-    MEETING ROOM
-    ===============================================
-    */
+     *===============================================*
+     * MEETING ROOM
+     *===============================================*
+     */
 
     meetingSocket(io, socket);
 
     /*
-    ===============================================
-    WEBRTC SIGNALING
-    ===============================================
-    */
+     *===============================================*
+     * WEBRTC SIGNALING
+     *===============================================*
+     */
 
     signaling(io, socket);
 
     /*
-    ===============================================
-    DISCONNECT
-    ===============================================
-    */
+     *===============================================*
+     * DISCONNECT
+     *===============================================*
+     */
 
     socket.on("disconnect", (reason) => {
       console.log("🔴 Main socket disconnected:", socket.id, reason);
