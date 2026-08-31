@@ -23,6 +23,10 @@ const meetingSocket = (io, socket) => {
         return;
       }
 
+      socket.data.user = user || {
+        name: "Participant",
+      };
+
       currentMeetingId = meetingId;
 
       /*

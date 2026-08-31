@@ -3,43 +3,75 @@ const SOCKET_EVENTS = require("./socketEvents");
 const signaling = (io, socket) => {
   /*
   =====================================================
-  WEBRTC OFFER
+  OFFER
   =====================================================
   */
 
   socket.on(SOCKET_EVENTS.OFFER, ({ targetSocketId, offer }) => {
-    console.log(
-      `📡 Offer: ${socket.id} -> ${targetSocketId}`
-    );
+    try {
+      if (!targetSocketId || !offer) {
+        console.log("❌ Invalid offer data");
 
-    io.to(targetSocketId).emit(SOCKET_EVENTS.OFFER, {
-      senderSocketId: socket.id,
-      offer,
-    });
+        return;
+      }
+
+      console.log(`📡 Offer: ${socket.id} → ${targetSocketId}`);
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+
+      if (!targetSocket) {
+        console.log("⚠️ Target socket not found:", targetSocketId);
+
+        return;
+      }
+
+      targetSocket.emit(SOCKET_EVENTS.OFFER, {
+        senderSocketId: socket.id,
+
+        senderUser: getUser(socket),
+
+        offer,
+      });
+    } catch (error) {
+      console.error("❌ Offer error:", error);
+    }
   });
 
   /*
   =====================================================
-  WEBRTC ANSWER
+  ANSWER
   =====================================================
   */
 
-  socket.on(
-    SOCKET_EVENTS.ANSWER,
-    ({ targetSocketId, answer }) => {
-      console.log(
-        `📡 Answer: ${socket.id} -> ${targetSocketId}`
-      );
+  socket.on(SOCKET_EVENTS.ANSWER, ({ targetSocketId, answer }) => {
+    try {
+      if (!targetSocketId || !answer) {
+        console.log("❌ Invalid answer data");
 
-      io.to(targetSocketId).emit(
-        SOCKET_EVENTS.ANSWER,
-        {
-          senderSocketId: socket.id,
-          answer,
-        }
-      );
+        return;
+      }
+
+      console.log(`📡 Answer: ${socket.id} → ${targetSocketId}`);
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+
+      if (!targetSocket) {
+        console.log("⚠️ Target socket not found:", targetSocketId);
+
+        return;
+      }
+
+      targetSocket.emit(SOCKET_EVENTS.ANSWER, {
+        senderSocketId: socket.id,
+
+        senderUser: getUser(socket),
+
+        answer,
+      });
+    } catch (error) {
+      console.error("❌ Answer error:", error);
     }
-  );
+  });
 
   /*
   =====================================================
@@ -47,20 +79,41 @@ const signaling = (io, socket) => {
   =====================================================
   */
 
-  socket.on(
-    SOCKET_EVENTS.ICE_CANDIDATE,
-    ({ targetSocketId, candidate }) => {
-      console.log(
-        `🧊 ICE Candidate: ${socket.id} -> ${targetSocketId}`
-      );
+  socket.on(SOCKET_EVENTS.ICE_CANDIDATE, ({ targetSocketId, candidate }) => {
+    try {
+      if (!targetSocketId || !candidate) {
+        return;
+      }
 
-      io.to(targetSocketId).emit(
-        SOCKET_EVENTS.ICE_CANDIDATE,
-        {
-          senderSocketId: socket.id,
-          candidate,
-        }
-      );
+      console.log(`🧊 ICE: ${socket.id} → ${targetSocketId}`);
+
+      const targetSocket = io.sockets.sockets.get(targetSocketId);
+
+      if (!targetSocket) {
+        return;
+      }
+
+      targetSocket.emit(SOCKET_EVENTS.ICE_CANDIDATE, {
+        senderSocketId: socket.id,
+
+        candidate,
+      });
+    } catch (error) {
+      console.error("❌ ICE error:", error);
+    }
+  });
+};
+
+/*
+=====================================================
+GET USER
+=====================================================
+*/
+
+const getUser = (socket) => {
+  return (
+    socket.data?.user || {
+      name: "Participant",
     }
   );
 };
