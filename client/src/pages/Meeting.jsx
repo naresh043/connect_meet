@@ -10,8 +10,19 @@ import MeetingControls from "../components/meeting/MeetingControls";
 
 const Meeting = () => {
   const { meetingId } = useParams();
-
   const navigate = useNavigate();
+
+  const [currentUser] = useState(() => {
+    try {
+      const storedUser = localStorage.getItem("connectmeet_user");
+
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      console.error("❌ Failed to read stored user:", error);
+
+      return null;
+    }
+  });
 
   const {
     localStream,
