@@ -1,33 +1,52 @@
 const express = require("express");
+
 const cors = require("cors");
 
 const app = express();
 
 /*
-=====================================================
-MIDDLEWARE
-=====================================================
-*/
+ *=====================================================*
+ *MIDDLEWARE
+ *=====================================================*
+ */
 
-// Parse incoming JSON data
+// *Parse incoming JSON data*
+
 app.use(express.json());
 
-// Parse URL-encoded data
+// *Parse URL-encoded data*
+
 app.use(express.urlencoded({ extended: true }));
 
-// Enable CORS
+// *Enable CORS*
+
+const allowedOrigins = process.env.CLIENT_URL
+  ? process.env.CLIENT_URL.split(",").map((url) => url.trim())
+  : ["http://localhost:5173"];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: function (origin, callback) {
+      // Allow requests without an origin
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
 
 /*
-=====================================================
-HEALTH CHECK
-=====================================================
-*/
+ *=====================================================*
+ *HEALTH CHECK
+ *=====================================================*
+ */
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -37,31 +56,32 @@ app.get("/", (req, res) => {
 });
 
 /*
-=====================================================
-API ROUTES
-=====================================================
-*/
+ *=====================================================*
+ *API ROUTES
+ *=====================================================*
+ */
 
-// Authentication routes
-// app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/auth", require('./routes/authRoutes') );
+// *Authentication routes*
 
-// User routes
+app.use("/api/auth", require("./routes/authRoutes"));
+
+// *User routes*
+
 // app.use("/api/users", require("./routes/userRoutes"));
 
-// Meeting routes
-// app.use("/api/meetings", require("./routes/meetingRoutes"));
+// *Meeting routes*
+
 app.use("/api/meetings", require("./routes/meetingRoutes"));
 
+// *Message routes*
 
-// Message routes
 // app.use("/api/messages", require("./routes/messageRoutes"));
 
 /*
-=====================================================
-404 HANDLER
-=====================================================
-*/
+ *=====================================================*
+ *404 HANDLER
+ *=====================================================*
+ */
 
 app.use((req, res) => {
   res.status(404).json({
@@ -71,10 +91,10 @@ app.use((req, res) => {
 });
 
 /*
-=====================================================
-GLOBAL ERROR HANDLER
-=====================================================
-*/
+ *=====================================================*
+ *GLOBAL ERROR HANDLER
+ *=====================================================*
+ */
 
 app.use((err, req, res, next) => {
   console.error("Error:", err);
@@ -88,9 +108,9 @@ app.use((err, req, res, next) => {
 });
 
 /*
-=====================================================
-EXPORT APP
-=====================================================
-*/
+ *=====================================================*
+ *EXPORT APP
+ *=====================================================*
+ */
 
 module.exports = app;
