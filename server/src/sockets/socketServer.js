@@ -1,11 +1,11 @@
 const { Server } = require("socket.io");
 
+const meetingSocket = require("./meetingSocket");
+
 const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin:
-        process.env.CLIENT_URL ||
-        "http://localhost:5173",
+      origin: process.env.CLIENT_URL || "http://localhost:5173",
 
       methods: ["GET", "POST"],
 
@@ -16,22 +16,26 @@ const initializeSocket = (server) => {
   });
 
   io.on("connection", (socket) => {
-    console.log(
-      "🟢 Socket connected:",
-      socket.id
-    );
+    console.log("🟢 Socket connected:", socket.id);
 
-    console.log(
-      "🧪 BASIC SOCKET TEST:",
-      socket.id
-    );
+    console.log("🧪 Socket connection established:", socket.id);
+
+    /*
+    ===============================================
+    MEETING SOCKET
+    ===============================================
+    */
+
+    meetingSocket(io, socket);
+
+    /*
+    ===============================================
+    DISCONNECT
+    ===============================================
+    */
 
     socket.on("disconnect", (reason) => {
-      console.log(
-        "🔴 Socket disconnected:",
-        socket.id,
-        reason
-      );
+      console.log("🔴 Socket disconnected:", socket.id, reason);
     });
   });
 
