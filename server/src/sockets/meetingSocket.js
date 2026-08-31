@@ -1,25 +1,8 @@
 const SOCKET_EVENTS = require("./socketEvents");
 
-/*
-=====================================================
-CONNECTED USERS
-
-socket.id -> {
-  meetingId,
-  user
-}
-=====================================================
-*/
-
 const connectedUsers = new Map();
 
 const meetingSocket = (io, socket) => {
-  /*
-  =====================================================
-  CURRENT MEETING
-  =====================================================
-  */
-
   let currentMeetingId = null;
 
   /*
@@ -28,114 +11,102 @@ const meetingSocket = (io, socket) => {
   =====================================================
   */
 
-  socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ meetingId, user }) => {
+  socket.on(SOCKET_EVENTS.JOIN_ROOM, (data) => {
     try {
-      if (!meetingId) {
-        console.log("❌ Meeting ID is required");
+      console.log("📥 JOIN_ROOM received:", data);
 
+      const meetingId = data?.meetingId;
+      const user = data?.user;
+
+      if (!meetingId) {
+        console.log("❌ meetingId missing");
         return;
       }
-
-      console.log(`🚪 ${socket.id} is joining ${meetingId}`);
-
-      /*
-        ===============================================
-        SAVE CURRENT MEETING
-        ===============================================
-        */
 
       currentMeetingId = meetingId;
 
       /*
-        ===============================================
-        JOIN SOCKET.IO ROOM
-        ===============================================
-        */
+      ===============================================
+      JOIN SOCKET.IO ROOM
+      ===============================================
+      */
 
       socket.join(meetingId);
 
+      console.log(`🚪 ${socket.id} joined room ${meetingId}`);
+
       /*
-        ===============================================
-        GET ROOM
-        ===============================================
-        */
+      ===============================================
+      GET EXISTING USERS
+      ===============================================
+      */
 
       const room = io.sockets.adapter.rooms.get(meetingId);
-
-      /*
-        ===============================================
-        EXISTING USERS
-        ===============================================
-        */
 
       const existingUsers = [];
 
       if (room) {
-        room.forEach((socketId) => {
-          /*
-            Don't include current user
-            */
+        for (const socketId of room) {
+          if (socketId === socket.id) {
+            continue;
+          }
 
-          if (socketId !== socket.id) {
-            const participant = connectedUsers.get(socketId);
+          const participant = connectedUsers.get(socketId);
 
+          if (participant) {
             existingUsers.push({
-              socketId,
-
-              user: participant?.user || {
+              socketId: socketId,
+              user: participant.user || {
                 name: "Participant",
-                email: "",
               },
             });
           }
-        });
+        }
       }
 
+      console.log(`👥 Existing users in ${meetingId}:`, existingUsers.length);
+
       /*
-        ===============================================
-        SEND EXISTING USERS TO NEW USER
-        ===============================================
-        */
+      ===============================================
+      SAVE CURRENT USER
+      ===============================================
+      */
+
+      connectedUsers.set(socket.id, {
+        meetingId,
+        user: user || {
+          name: "Participant",
+        },
+      });
+
+      /*
+      ===============================================
+      SEND EXISTING USERS
+      ===============================================
+      */
 
       socket.emit(SOCKET_EVENTS.EXISTING_USERS, {
         users: existingUsers,
       });
 
-      console.log(`👥 Existing users in ${meetingId}:`, existingUsers);
+      console.log(`📤 Existing users sent to ${socket.id}`);
 
       /*
-        ===============================================
-        SAVE CURRENT USER
-        ===============================================
-        */
-
-      connectedUsers.set(socket.id, {
-        meetingId,
-
-        user: user || {
-          name: "Participant",
-          email: "",
-        },
-      });
-
-      /*
-        ===============================================
-        NOTIFY EXISTING USERS
-        ===============================================
-        */
+      ===============================================
+      NOTIFY OTHER USERS
+      ===============================================
+      */
 
       socket.to(meetingId).emit(SOCKET_EVENTS.USER_JOINED, {
         socketId: socket.id,
-
         user: user || {
           name: "Participant",
-          email: "",
         },
       });
 
-      console.log(`👤 ${user?.name || "Participant"} joined ${meetingId}`);
+      console.log(`📢 User joined event sent for ${socket.id}`);
     } catch (error) {
-      console.error("❌ Join room error:", error);
+      console.error("❌ JOIN_ROOM error:", error);
     }
   });
 
@@ -145,51 +116,27 @@ const meetingSocket = (io, socket) => {
   =====================================================
   */
 
-  socket.on(SOCKET_EVENTS.LEAVE_ROOM, (meetingId) => {
+  socket.on("leave-room", (meetingId) => {
     try {
-      if (!meetingId) {
+      const roomId = meetingId || currentMeetingId;
+
+      if (!roomId) {
         return;
       }
 
-      console.log(`🚪 ${socket.id} leaving ${meetingId}`);
+      console.log(`👋 ${socket.id} leaving ${roomId}`);
 
-      /*
-        ===============================================
-        LEAVE SOCKET.IO ROOM
-        ===============================================
-        */
-
-      socket.leave(meetingId);
-
-      /*
-        ===============================================
-        REMOVE USER FROM MAP
-        ===============================================
-        */
-
-      connectedUsers.delete(socket.id);
-
-      /*
-        ===============================================
-        NOTIFY OTHER USERS
-        ===============================================
-        */
-
-      socket.to(meetingId).emit(SOCKET_EVENTS.USER_LEFT, {
+      socket.to(roomId).emit(SOCKET_EVENTS.USER_LEFT, {
         socketId: socket.id,
       });
 
-      /*
-        ===============================================
-        CLEAR CURRENT MEETING
-        ===============================================
-        */
+      socket.leave(roomId);
+
+      connectedUsers.delete(socket.id);
 
       currentMeetingId = null;
-
-      console.log(`👋 ${socket.id} left ${meetingId}`);
     } catch (error) {
-      console.error("❌ Leave room error:", error);
+      console.error("❌ LEAVE_ROOM error:", error);
     }
   });
 
@@ -199,44 +146,20 @@ const meetingSocket = (io, socket) => {
   =====================================================
   */
 
-  socket.on(SOCKET_EVENTS.DISCONNECT, () => {
-    try {
-      console.log(`❌ Socket disconnected: ${socket.id}`);
+  socket.on("disconnect", (reason) => {
+    console.log(`🔴 Socket disconnected: ${socket.id}`, reason);
 
-      /*
-        ===============================================
-        IF USER WAS IN A MEETING
-        ===============================================
-        */
+    if (currentMeetingId) {
+      socket.to(currentMeetingId).emit(SOCKET_EVENTS.USER_LEFT, {
+        socketId: socket.id,
+      });
 
-      if (currentMeetingId) {
-        socket.to(currentMeetingId).emit(SOCKET_EVENTS.USER_LEFT, {
-          socketId: socket.id,
-        });
-
-        console.log(
-          `👋 Notified meeting ${currentMeetingId} that ${socket.id} left`,
-        );
-      }
-
-      /*
-        ===============================================
-        REMOVE USER
-        ===============================================
-        */
-
-      connectedUsers.delete(socket.id);
-
-      /*
-        ===============================================
-        CLEAR CURRENT MEETING
-        ===============================================
-        */
-
-      currentMeetingId = null;
-    } catch (error) {
-      console.error("❌ Disconnect error:", error);
+      console.log(`👋 Notified ${currentMeetingId} about ${socket.id}`);
     }
+
+    connectedUsers.delete(socket.id);
+
+    currentMeetingId = null;
   });
 };
 

@@ -1,31 +1,61 @@
 const SOCKET_EVENTS = {
+  // =====================================================
+  // SOCKET CONNECTION
+  // =====================================================
+
   CONNECTION: "connection",
+
   DISCONNECT: "disconnect",
 
-  // Meeting
+  // =====================================================
+  // MEETING
+  // =====================================================
+
   JOIN_ROOM: "join-room",
+
+  LEAVE_ROOM: "leave-room",
+
+  EXISTING_USERS: "existing-users",
+
   USER_JOINED: "user-joined",
+
   USER_LEFT: "user-left",
 
-  // WebRTC signaling
+  MEETING_ENDED: "meeting-ended",
+
+  // =====================================================
+  // WEBRTC SIGNALING
+  // =====================================================
+
   OFFER: "offer",
+
   ANSWER: "answer",
+
   ICE_CANDIDATE: "ice-candidate",
 
-  // Chat
+  // =====================================================
+  // CHAT
+  // =====================================================
+
   SEND_MESSAGE: "send-message",
+
   RECEIVE_MESSAGE: "receive-message",
 
-  // Media controls
+  // =====================================================
+  // MEDIA CONTROLS
+  // =====================================================
+
   CAMERA_TOGGLE: "camera-toggle",
+
   MIC_TOGGLE: "mic-toggle",
 
-  // Screen sharing
-  SCREEN_SHARE_STARTED: "screen-share-started",
-  SCREEN_SHARE_STOPPED: "screen-share-stopped",
+  // =====================================================
+  // SCREEN SHARING
+  // =====================================================
 
-  // Meeting
-  MEETING_ENDED: "meeting-ended",
+  SCREEN_SHARE_STARTED: "screen-share-started",
+
+  SCREEN_SHARE_STOPPED: "screen-share-stopped",
 };
 
 module.exports = SOCKET_EVENTS;

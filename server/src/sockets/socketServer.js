@@ -18,24 +18,10 @@ const initializeSocket = (server) => {
   io.on("connection", (socket) => {
     console.log("🟢 Socket connected:", socket.id);
 
-    console.log("🧪 Socket connection established:", socket.id);
-
-    /*
-    ===============================================
-    MEETING SOCKET
-    ===============================================
-    */
-
     meetingSocket(io, socket);
 
-    /*
-    ===============================================
-    DISCONNECT
-    ===============================================
-    */
-
     socket.on("disconnect", (reason) => {
-      console.log("🔴 Socket disconnected:", socket.id, reason);
+      console.log("🔴 Main socket disconnect:", socket.id, reason);
     });
   });
 
