@@ -11,104 +11,57 @@ const meetingSocket = (io, socket) => {
   =====================================================
   */
 
-  socket.on(SOCKET_EVENTS.JOIN_ROOM, (data) => {
+  socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ meetingId, user }) => {
     try {
-      console.log("📥 JOIN_ROOM received:", data);
-
-      const meetingId = data?.meetingId;
-      const user = data?.user;
-
       if (!meetingId) {
-        console.log("❌ meetingId missing");
         return;
       }
 
+      // Save user directly on the socket
       socket.data.user = user || {
         name: "Participant",
       };
 
-      currentMeetingId = meetingId;
-
-      /*
-      ===============================================
-      JOIN SOCKET.IO ROOM
-      ===============================================
-      */
-
       socket.join(meetingId);
 
-      console.log(`🚪 ${socket.id} joined room ${meetingId}`);
-
-      /*
-      ===============================================
-      GET EXISTING USERS
-      ===============================================
-      */
+      currentMeetingId = meetingId;
 
       const room = io.sockets.adapter.rooms.get(meetingId);
 
       const existingUsers = [];
 
       if (room) {
-        for (const socketId of room) {
+        room.forEach((socketId) => {
           if (socketId === socket.id) {
-            continue;
+            return;
           }
 
           const participant = connectedUsers.get(socketId);
 
-          if (participant) {
-            existingUsers.push({
-              socketId: socketId,
-              user: participant.user || {
-                name: "Participant",
-              },
-            });
-          }
-        }
+          existingUsers.push({
+            socketId,
+            user: participant?.user || {
+              name: "Participant",
+            },
+          });
+        });
       }
-
-      console.log(`👥 Existing users in ${meetingId}:`, existingUsers.length);
-
-      /*
-      ===============================================
-      SAVE CURRENT USER
-      ===============================================
-      */
 
       connectedUsers.set(socket.id, {
         meetingId,
-        user: user || {
-          name: "Participant",
-        },
+        user: socket.data.user,
       });
-
-      /*
-      ===============================================
-      SEND EXISTING USERS
-      ===============================================
-      */
 
       socket.emit(SOCKET_EVENTS.EXISTING_USERS, {
         users: existingUsers,
       });
 
-      console.log(`📤 Existing users sent to ${socket.id}`);
-
-      /*
-      ===============================================
-      NOTIFY OTHER USERS
-      ===============================================
-      */
-
       socket.to(meetingId).emit(SOCKET_EVENTS.USER_JOINED, {
         socketId: socket.id,
-        user: user || {
-          name: "Participant",
-        },
+        user: socket.data.user,
       });
 
-      console.log(`📢 User joined event sent for ${socket.id}`);
+      console.log(`👤 ${socket.data.user.name} joined ${meetingId}`);
     } catch (error) {
       console.error("❌ JOIN_ROOM error:", error);
     }

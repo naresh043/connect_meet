@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+
 import { useNavigate, useParams } from "react-router-dom";
 
 import useWebRTC from "../hooks/useWebRTC";
 
 import VideoTile from "../components/meeting/VideoTile";
+
 import MeetingControls from "../components/meeting/MeetingControls";
 
 const Meeting = () => {
@@ -14,10 +16,10 @@ const Meeting = () => {
   const {
     localStream,
     remoteStreams,
+    remoteUsers,
     isMuted,
     isCameraOff,
     isConnected,
-
     toggleMicrophone,
     toggleCamera,
     leaveMeeting,
@@ -25,7 +27,7 @@ const Meeting = () => {
 
   /*
   =====================================================
-  LEAVE
+  LEAVE MEETING
   =====================================================
   */
 
@@ -51,13 +53,25 @@ const Meeting = () => {
 
   /*
   =====================================================
+  DEBUG
+  =====================================================
+  */
+
+  console.log("👥 Remote Users:", remoteUsers);
+
+  console.log("🎥 Remote Streams:", remoteStreams);
+
+  /*
+  =====================================================
   UI
   =====================================================
   */
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
 
       <header className="h-16 bg-gray-900 border-b border-gray-800 px-6 flex items-center justify-between">
         <div>
@@ -79,7 +93,9 @@ const Meeting = () => {
         </div>
       </header>
 
-      {/* VIDEO AREA */}
+      {/* =====================================================
+          VIDEO AREA
+          ===================================================== */}
 
       <main className="p-6 pb-32">
         <div
@@ -89,7 +105,9 @@ const Meeting = () => {
               : "grid-cols-1 md:grid-cols-2"
           }`}
         >
-          {/* LOCAL VIDEO */}
+          {/* =====================================================
+              LOCAL VIDEO
+              ===================================================== */}
 
           {localStream && (
             <VideoTile
@@ -100,19 +118,30 @@ const Meeting = () => {
             />
           )}
 
-          {/* REMOTE VIDEOS */}
+          {/* =====================================================
+              REMOTE VIDEOS
+              ===================================================== */}
 
-          {Object.entries(remoteStreams).map(([socketId, stream]) => (
-            <VideoTile
-              key={socketId}
-              stream={stream}
-              name={`Participant`}
-              muted={false}
-            />
-          ))}
+          {Object.entries(remoteStreams).map(([socketId, stream]) => {
+            const participant = remoteUsers?.[socketId];
+
+            const participantName = participant?.name || "Participant";
+
+            return (
+              <VideoTile
+                key={socketId}
+                stream={stream}
+                name={participantName}
+                muted={false}
+                isLocal={false}
+              />
+            );
+          })}
         </div>
 
-        {/* WAITING MESSAGE */}
+        {/* =====================================================
+            WAITING MESSAGE
+            ===================================================== */}
 
         {Object.keys(remoteStreams).length === 0 && (
           <div className="text-center mt-8">
@@ -127,7 +156,9 @@ const Meeting = () => {
         )}
       </main>
 
-      {/* CONTROLS */}
+      {/* =====================================================
+          MEETING CONTROLS
+          ===================================================== */}
 
       <MeetingControls
         isMuted={isMuted}
