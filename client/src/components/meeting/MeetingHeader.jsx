@@ -1,4 +1,11 @@
-import { Users, Clock, Copy, Check, Link } from "feather-icons-react";
+import {
+  Users,
+  Clock3,
+  Copy,
+  Check,
+  Link as LinkIcon,
+  Video,
+} from "lucide-react";
 
 import { useState } from "react";
 
@@ -36,61 +43,168 @@ const MeetingHeader = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-gray-900/95 backdrop-blur-md border-b border-gray-800">
-      <div className="px-3 sm:px-5 lg:px-6 py-3">
+    <header
+      className="
+        sticky
+        top-0
+        z-50
+        border-b
+        border-slate-800
+        bg-slate-950/95
+        shadow-lg
+        shadow-black/10
+        backdrop-blur-xl
+      "
+    >
+      <div className="px-3 py-3 sm:px-5 lg:px-6">
+        {/* TOP ROW */}
         <div className="flex items-center justify-between gap-3">
           {/* BRAND */}
+          <div className="flex min-w-0 items-center gap-3">
+            <div
+              className="
+                hidden
+                h-10
+                w-10
+                shrink-0
+                items-center
+                justify-center
+                rounded-xl
+                bg-indigo-600
+                text-white
+                shadow-md
+                shadow-indigo-950/40
+                sm:flex
+              "
+            >
+              <Video size={18} />
+            </div>
 
-          <div className="min-w-0 flex-1">
-            <h1 className="font-bold text-base sm:text-lg lg:text-xl truncate">
-              ConnectMeet
-            </h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="truncate text-base font-bold tracking-tight text-white sm:text-lg">
+                  ConnectMeet
+                </h1>
 
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] sm:text-xs text-gray-500">
-                Meeting ID:
-              </span>
+                {/* CONNECTION STATUS */}
+                <span
+                  className={`
+                    hidden
+                    items-center
+                    gap-1.5
+                    rounded-full
+                    px-2
+                    py-1
+                    text-[10px]
+                    font-semibold
+                    sm:flex
+                    ${
+                      isConnected
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400"
+                    }
+                  `}
+                >
+                  <span
+                    className={`
+                      h-1.5
+                      w-1.5
+                      rounded-full
+                      ${isConnected ? "bg-emerald-400" : "bg-red-400"}
+                    `}
+                  />
 
-              <span className="font-mono text-[10px] sm:text-xs text-gray-300 truncate">
-                {meetingId}
-              </span>
+                  {isConnected ? "Connected" : "Connecting..."}
+                </span>
+              </div>
+
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0 text-[10px] text-slate-600 sm:text-xs">
+                  Meeting ID
+                </span>
+
+                <span className="truncate font-mono text-[10px] text-slate-400 sm:text-xs">
+                  {meetingId}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* ACTIONS */}
-
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* CONNECTION */}
-
-            <div className="flex items-center gap-1.5 bg-gray-800 px-2.5 py-2 rounded-lg">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {/* MOBILE CONNECTION */}
+            <div
+              className={`
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-lg
+                sm:hidden
+                ${isConnected ? "bg-emerald-500/10" : "bg-red-500/10"}
+              `}
+              title={isConnected ? "Connected" : "Connecting..."}
+            >
               <span
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-green-500" : "bg-red-500"
-                }`}
+                className={`
+                  h-2
+                  w-2
+                  rounded-full
+                  ${isConnected ? "bg-emerald-400" : "bg-red-400"}
+                `}
               />
-
-              <span className="hidden md:inline text-xs text-gray-300">
-                {isConnected ? "Connected" : "Connecting..."}
-              </span>
             </div>
 
             {/* PARTICIPANTS */}
-
             <button
               type="button"
               onClick={onParticipants}
-              className="h-9 min-w-9 px-2.5 flex items-center justify-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 transition"
+              className="
+                flex
+                h-9
+                min-w-9
+                items-center
+                justify-center
+                gap-1.5
+                rounded-lg
+                border
+                border-slate-800
+                bg-slate-900
+                px-2.5
+                text-slate-300
+                transition-all
+                duration-200
+                hover:border-slate-700
+                hover:bg-slate-800
+                hover:text-white
+                cursor-pointer
+              "
               title="Participants"
             >
               <Users size={16} />
 
-              <span className="text-xs sm:text-sm">{participantCount}</span>
+              <span className="text-xs font-medium sm:text-sm">
+                {participantCount}
+              </span>
             </button>
 
             {/* TIMER */}
-
-            <div className="h-9 flex items-center gap-1.5 bg-gray-800 px-2.5 rounded-lg">
-              <Clock size={15} />
+            <div
+              className="
+                flex
+                h-9
+                items-center
+                gap-1.5
+                rounded-lg
+                border
+                border-slate-800
+                bg-slate-900
+                px-2.5
+                text-slate-300
+              "
+            >
+              <Clock3 size={14} />
 
               <span className="font-mono text-[11px] sm:text-xs">
                 {meetingTime}
@@ -100,39 +214,83 @@ const MeetingHeader = ({
         </div>
 
         {/* COPY BUTTONS */}
-
-        <div className="flex gap-2 mt-2">
+        <div className="mt-2.5 flex gap-2">
+          {/* COPY ID */}
           <button
             type="button"
             onClick={copyMeetingId}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 px-3 py-2 rounded-lg text-xs transition"
+            className="
+              flex
+              flex-1
+              items-center
+              justify-center
+              gap-2
+              rounded-lg
+              border
+              border-slate-800
+              bg-slate-900
+              px-3
+              py-2
+              text-xs
+              font-medium
+              text-slate-300
+              transition-all
+              duration-200
+              hover:border-slate-700
+              hover:bg-slate-800
+              hover:text-white
+              cursor-pointer
+              sm:flex-none
+            "
           >
             {copied === "id" ? (
               <>
-                <Check size={15} />
+                <Check size={14} className="text-emerald-400" />
                 Copied
               </>
             ) : (
               <>
-                <Copy size={15} />
+                <Copy size={14} />
                 Copy ID
               </>
             )}
           </button>
 
+          {/* COPY LINK */}
           <button
             type="button"
             onClick={copyMeetingLink}
-            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-lg text-xs transition"
+            className="
+              flex
+              flex-1
+              items-center
+              justify-center
+              gap-2
+              rounded-lg
+              bg-indigo-600
+              px-3
+              py-2
+              text-xs
+              font-semibold
+              text-white
+              shadow-sm
+              shadow-indigo-950/30
+              transition-all
+              duration-200
+              hover:bg-indigo-700
+              hover:shadow-md
+              cursor-pointer
+              sm:flex-none
+            "
           >
             {copied === "link" ? (
               <>
-                <Check size={15} />
+                <Check size={14} />
                 Copied
               </>
             ) : (
               <>
-                <Link size={15} />
+                <LinkIcon size={14} />
                 Copy Link
               </>
             )}

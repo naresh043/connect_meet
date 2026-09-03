@@ -1,4 +1,12 @@
-import { Users, X, User, Mic, MicOff, VideoOff } from "feather-icons-react";
+import {
+  Users,
+  X,
+  User,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+} from "lucide-react";
 
 import {
   getRemoteCameraStatus,
@@ -14,48 +22,121 @@ const ParticipantPanel = ({
   onClose,
 }) => {
   const remoteCount = Object.keys(remoteUsers || {}).length;
-
   const participantCount = 1 + remoteCount;
 
   return (
     <>
       {/* MOBILE BACKDROP */}
-
       <div
-        className="fixed inset-0 z-[90] bg-black/50 sm:hidden"
+        className="
+          fixed
+          inset-0
+          z-[90]
+          bg-black/60
+          backdrop-blur-[2px]
+          sm:hidden
+        "
         onClick={onClose}
       />
 
       {/* PANEL */}
-
-      <div className="fixed top-0 right-0 bottom-0 sm:top-20 sm:right-4 sm:bottom-auto z-[100] w-full sm:w-80 max-w-sm">
-        <div className="h-full sm:h-auto bg-gray-900 sm:border sm:border-gray-700 sm:rounded-2xl shadow-2xl overflow-hidden">
+      <div
+        className="
+          fixed
+          bottom-0
+          right-0
+          top-0
+          z-[100]
+          w-full
+          max-w-sm
+          sm:bottom-auto
+          sm:right-4
+          sm:top-20
+          sm:w-80
+        "
+      >
+        <div
+          className="
+            flex
+            h-full
+            flex-col
+            overflow-hidden
+            border-slate-800
+            bg-slate-950
+            shadow-2xl
+            sm:h-auto
+            sm:max-h-[calc(100vh-100px)]
+            sm:rounded-2xl
+            sm:border
+          "
+        >
           {/* HEADER */}
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              border-b
+              border-slate-800
+              px-4
+              py-4
+            "
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="
+                  flex
+                  h-10
+                  w-10
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-indigo-500/10
+                  text-indigo-400
+                "
+              >
+                <Users size={18} />
+              </div>
 
-          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800">
-            <div>
-              <h2 className="font-semibold">Participants</h2>
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  Participants
+                </h2>
 
-              <p className="text-xs text-gray-400 mt-1">
-                {participantCount}{" "}
-                {participantCount === 1 ? "person" : "people"}
-              </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {participantCount}{" "}
+                  {participantCount === 1
+                    ? "person"
+                    : "people"}
+                </p>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-800"
+              className="
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-lg
+                text-slate-400
+                transition
+                hover:bg-slate-800
+                hover:text-white
+                cursor-pointer
+              "
+              title="Close participants"
             >
-              <X size={19} />
+              <X size={18} />
             </button>
           </div>
 
           {/* LIST */}
-
-          <div className="overflow-y-auto max-h-[calc(100vh-80px)] sm:max-h-96">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {/* CURRENT USER */}
-
             <ParticipantRow
               name={currentUser?.name || "You"}
               email={currentUser?.email}
@@ -65,31 +146,57 @@ const ParticipantPanel = ({
             />
 
             {/* REMOTE USERS */}
-
             {Object.entries(remoteUsers || {}).map(
               ([socketId, participant]) => {
-                const stream = remoteStreams?.[socketId];
+                const stream =
+                  remoteStreams?.[socketId];
 
                 return (
                   <ParticipantRow
                     key={socketId}
-                    name={participant?.name || "Participant"}
+                    name={
+                      participant?.name ||
+                      "Participant"
+                    }
                     email={participant?.email}
-                    muted={getRemoteMicStatus(participant, stream)}
-                    cameraOff={getRemoteCameraStatus(participant, stream)}
+                    muted={getRemoteMicStatus(
+                      participant,
+                      stream
+                    )}
+                    cameraOff={getRemoteCameraStatus(
+                      participant,
+                      stream
+                    )}
                   />
                 );
-              },
+              }
             )}
 
             {/* EMPTY */}
-
             {remoteCount === 0 && (
-              <div className="text-center py-8 px-4">
-                <Users size={24} className="mx-auto text-gray-600 mb-2" />
+              <div className="px-4 py-8 text-center">
+                <div
+                  className="
+                    mx-auto
+                    flex
+                    h-11
+                    w-11
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-slate-900
+                    text-slate-600
+                  "
+                >
+                  <Users size={20} />
+                </div>
 
-                <p className="text-sm text-gray-400">
+                <p className="mt-3 text-sm text-slate-400">
                   You are the only participant
+                </p>
+
+                <p className="mt-1 text-xs text-slate-600">
+                  Share the meeting link to invite others.
                 </p>
               </div>
             )}
@@ -100,11 +207,9 @@ const ParticipantPanel = ({
   );
 };
 
-/*
-=====================================================
-PARTICIPANT ROW
-=====================================================
-*/
+/* =====================================================
+   PARTICIPANT ROW
+===================================================== */
 
 const ParticipantRow = ({
   name,
@@ -113,59 +218,126 @@ const ParticipantRow = ({
   muted = false,
   cameraOff = false,
 }) => {
-  const avatar = (name || "P").charAt(0).toUpperCase();
+  const avatar = (name || "P")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
+    <div
+      className="
+        flex
+        items-center
+        gap-3
+        border-b
+        border-slate-800/80
+        px-4
+        py-3
+      "
+    >
       {/* AVATAR */}
-
       <div
         className={`
-          w-11
-          h-11
-          rounded-full
           flex
+          h-10
+          w-10
+          shrink-0
           items-center
           justify-center
-          flex-shrink-0
-          ${isYou ? "bg-blue-600" : "bg-slate-700"}
+          rounded-full
+          ${
+            isYou
+              ? "bg-indigo-600 text-white"
+              : "bg-slate-800 text-slate-300"
+          }
         `}
       >
         {avatar ? (
-          <span className="font-semibold">{avatar}</span>
+          <span className="text-sm font-semibold">
+            {avatar}
+          </span>
         ) : (
-          <User size={18} />
+          <User size={17} />
         )}
       </div>
 
       {/* USER INFO */}
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="font-medium text-sm truncate">{name}</p>
+          <p className="truncate text-sm font-medium text-white">
+            {name}
+          </p>
 
           {isYou && (
-            <span className="text-[10px] bg-blue-600/20 text-blue-400 px-2 py-0.5 rounded-full">
+            <span
+              className="
+                shrink-0
+                rounded-full
+                bg-indigo-500/10
+                px-2
+                py-0.5
+                text-[10px]
+                font-semibold
+                text-indigo-400
+              "
+            >
               You
             </span>
           )}
         </div>
 
         {email && (
-          <p className="text-xs text-gray-500 truncate mt-0.5">{email}</p>
+          <p className="mt-0.5 truncate text-xs text-slate-600">
+            {email}
+          </p>
         )}
       </div>
 
       {/* MEDIA STATUS */}
+      <div className="flex shrink-0 items-center gap-2">
+        <div
+          className={`
+            flex
+            h-7
+            w-7
+            items-center
+            justify-center
+            rounded-lg
+            ${
+              muted
+                ? "bg-red-500/10 text-red-400"
+                : "bg-slate-900 text-slate-400"
+            }
+          `}
+        >
+          {muted ? (
+            <MicOff size={14} />
+          ) : (
+            <Mic size={14} />
+          )}
+        </div>
 
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {muted ? (
-          <MicOff size={16} className="text-red-400" />
-        ) : (
-          <Mic size={16} className="text-gray-300" />
-        )}
-
-        {cameraOff && <VideoOff size={16} className="text-red-400" />}
+        <div
+          className={`
+            flex
+            h-7
+            w-7
+            items-center
+            justify-center
+            rounded-lg
+            ${
+              cameraOff
+                ? "bg-red-500/10 text-red-400"
+                : "bg-slate-900 text-slate-400"
+            }
+          `}
+        >
+          {cameraOff ? (
+            <VideoOff size={14} />
+          ) : (
+            <Video size={14} />
+          )}
+        </div>
       </div>
     </div>
   );
