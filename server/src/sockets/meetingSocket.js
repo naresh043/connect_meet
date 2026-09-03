@@ -14,17 +14,39 @@ const meetingSocket = (io, socket) => {
   socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ meetingId, user }) => {
     try {
       if (!meetingId) {
+        console.warn("⚠️ JOIN_ROOM missing meetingId");
+
         return;
       }
 
-      // Save user directly on the socket
-      socket.data.user = user || {
-        name: "Participant",
+      /*
+        =============================================
+        NORMALIZE USER
+        =============================================
+        */
+
+      socket.data.user = {
+        ...(user || {}),
+        name: user?.name || "Participant",
+        isMuted: user?.isMuted ?? false,
+        isCameraOff: user?.isCameraOff ?? false,
       };
+
+      /*
+        =============================================
+        JOIN SOCKET.IO ROOM
+        =============================================
+        */
 
       socket.join(meetingId);
 
       currentMeetingId = meetingId;
+
+      /*
+        =============================================
+        GET EXISTING USERS
+        =============================================
+        */
 
       const room = io.sockets.adapter.rooms.get(meetingId);
 
@@ -40,21 +62,42 @@ const meetingSocket = (io, socket) => {
 
           existingUsers.push({
             socketId,
+
             user: participant?.user || {
               name: "Participant",
+              isMuted: false,
+              isCameraOff: false,
             },
           });
         });
       }
+
+      /*
+        =============================================
+        SAVE CURRENT USER
+        =============================================
+        */
 
       connectedUsers.set(socket.id, {
         meetingId,
         user: socket.data.user,
       });
 
+      /*
+        =============================================
+        SEND EXISTING USERS
+        =============================================
+        */
+
       socket.emit(SOCKET_EVENTS.EXISTING_USERS, {
         users: existingUsers,
       });
+
+      /*
+        =============================================
+        NOTIFY EXISTING USERS
+        =============================================
+        */
 
       socket.to(meetingId).emit(SOCKET_EVENTS.USER_JOINED, {
         socketId: socket.id,
@@ -62,8 +105,107 @@ const meetingSocket = (io, socket) => {
       });
 
       console.log(`👤 ${socket.data.user.name} joined ${meetingId}`);
+
+      console.log(`👥 Existing users: ${existingUsers.length}`);
     } catch (error) {
       console.error("❌ JOIN_ROOM error:", error);
+    }
+  });
+
+  /*
+  =====================================================
+  CAMERA TOGGLE
+  =====================================================
+  */
+
+  socket.on("camera-toggle", ({ meetingId, isCameraOff }) => {
+    try {
+      if (!meetingId) {
+        return;
+      }
+
+      /*
+        Make sure user belongs
+        to this meeting.
+        */
+
+      if (currentMeetingId !== meetingId) {
+        return;
+      }
+
+      /*
+        Update stored user state
+        */
+
+      const participant = connectedUsers.get(socket.id);
+
+      if (participant) {
+        participant.user = {
+          ...participant.user,
+          isCameraOff: Boolean(isCameraOff),
+        };
+
+        connectedUsers.set(socket.id, participant);
+      }
+
+      /*
+        Send to everyone else
+        */
+
+      socket.to(meetingId).emit("camera-toggle", {
+        socketId: socket.id,
+        isCameraOff: Boolean(isCameraOff),
+      });
+
+      console.log(`📹 ${socket.id} camera: ${isCameraOff ? "OFF" : "ON"}`);
+    } catch (error) {
+      console.error("❌ Camera toggle error:", error);
+    }
+  });
+
+  /*
+  =====================================================
+  MIC TOGGLE
+  =====================================================
+  */
+
+  socket.on("mic-toggle", ({ meetingId, isMuted }) => {
+    try {
+      if (!meetingId) {
+        return;
+      }
+
+      if (currentMeetingId !== meetingId) {
+        return;
+      }
+
+      /*
+        Update stored user state
+        */
+
+      const participant = connectedUsers.get(socket.id);
+
+      if (participant) {
+        participant.user = {
+          ...participant.user,
+          isMuted: Boolean(isMuted),
+        };
+
+        connectedUsers.set(socket.id, participant);
+      }
+
+      /*
+        Send to everyone else
+        */
+
+      socket.to(meetingId).emit("mic-toggle", {
+        socketId: socket.id,
+        isMuted: Boolean(isMuted),
+      });
+
+      console.log(`🎤 ${socket.id} mic: ${isMuted ? "MUTED" : "UNMUTED"}`);
+    } catch (error) {
+      console.error("❌ Mic toggle error:", error);
     }
   });
 
@@ -73,7 +215,7 @@ const meetingSocket = (io, socket) => {
   =====================================================
   */
 
-  socket.on("leave-room", (meetingId) => {
+  socket.on(SOCKET_EVENTS.LEAVE_ROOM, (meetingId) => {
     try {
       const roomId = meetingId || currentMeetingId;
 
