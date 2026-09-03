@@ -7,7 +7,7 @@ import {
   Video,
 } from "lucide-react";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MeetingHeader = ({
   meetingId,
@@ -18,29 +18,113 @@ const MeetingHeader = ({
 }) => {
   const [copied, setCopied] = useState(null);
 
+  const copyTimeoutRef = useRef(null);
+
+  /*
+   * =====================================================
+   * CLEANUP COPY TIMER
+   * =====================================================
+   */
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  /*
+   * =====================================================
+   * COPY TEXT
+   * =====================================================
+   */
+
   const copyText = async (text, type) => {
+    if (!text) {
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(text);
 
       setCopied(type);
 
-      setTimeout(() => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+
+      copyTimeoutRef.current = setTimeout(() => {
         setCopied(null);
       }, 2000);
     } catch (error) {
       console.error("Copy failed:", error);
+
+      /*
+       * Fallback for browsers where clipboard API
+       * is unavailable.
+       */
+
+      try {
+        const textarea = document.createElement("textarea");
+
+        textarea.value = text;
+
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        textarea.style.pointerEvents = "none";
+
+        document.body.appendChild(textarea);
+
+        textarea.focus();
+        textarea.select();
+
+        document.execCommand("copy");
+
+        document.body.removeChild(textarea);
+
+        setCopied(type);
+
+        if (copyTimeoutRef.current) {
+          clearTimeout(copyTimeoutRef.current);
+        }
+
+        copyTimeoutRef.current = setTimeout(() => {
+          setCopied(null);
+        }, 2000);
+      } catch (fallbackError) {
+        console.error("Clipboard fallback failed:", fallbackError);
+      }
     }
   };
+
+  /*
+   * =====================================================
+   * COPY MEETING ID
+   * =====================================================
+   */
 
   const copyMeetingId = () => {
     copyText(meetingId, "id");
   };
+
+  /*
+   * =====================================================
+   * COPY MEETING LINK
+   * =====================================================
+   */
 
   const copyMeetingLink = () => {
     const link = `${window.location.origin}/meeting/${meetingId}`;
 
     copyText(link, "link");
   };
+
+  /*
+   * =====================================================
+   * RENDER
+   * =====================================================
+   */
 
   return (
     <header
@@ -56,11 +140,27 @@ const MeetingHeader = ({
         backdrop-blur-xl
       "
     >
-      <div className="px-3 py-3 sm:px-5 lg:px-6">
-        {/* TOP ROW */}
+      <div
+        className="
+          px-3
+          py-3
+          sm:px-5
+          sm:py-3.5
+          lg:px-6
+        "
+      >
+        {/* =================================================
+            TOP ROW
+        ================================================= */}
+
         <div className="flex items-center justify-between gap-3">
-          {/* BRAND */}
+          {/* =================================================
+              BRAND
+          ================================================= */}
+
           <div className="flex min-w-0 items-center gap-3">
+            {/* LOGO */}
+
             <div
               className="
                 hidden
@@ -77,22 +177,35 @@ const MeetingHeader = ({
                 sm:flex
               "
             >
-              <Video size={18} />
+              <Video size={18} strokeWidth={2.2} />
             </div>
+
+            {/* BRAND INFO */}
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-base font-bold tracking-tight text-white sm:text-lg">
+                <h1
+                  className="
+                    truncate
+                    text-base
+                    font-bold
+                    tracking-tight
+                    text-white
+                    sm:text-lg
+                  "
+                >
                   ConnectMeet
                 </h1>
 
-                {/* CONNECTION STATUS */}
-                <span
+                {/* DESKTOP CONNECTION STATUS */}
+
+                <div
                   className={`
                     hidden
                     items-center
                     gap-1.5
                     rounded-full
+                    border
                     px-2
                     py-1
                     text-[10px]
@@ -100,8 +213,16 @@ const MeetingHeader = ({
                     sm:flex
                     ${
                       isConnected
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-red-500/10 text-red-400"
+                        ? `
+                          border-emerald-500/10
+                          bg-emerald-500/10
+                          text-emerald-400
+                        `
+                        : `
+                          border-red-500/10
+                          bg-red-500/10
+                          text-red-400
+                        `
                     }
                   `}
                 >
@@ -115,24 +236,54 @@ const MeetingHeader = ({
                   />
 
                   {isConnected ? "Connected" : "Connecting..."}
-                </span>
+                </div>
               </div>
 
+              {/* MEETING ID */}
+
               <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-[10px] text-slate-600 sm:text-xs">
+                <span
+                  className="
+                    shrink-0
+                    text-[10px]
+                    text-slate-600
+                    sm:text-xs
+                  "
+                >
                   Meeting ID
                 </span>
 
-                <span className="truncate font-mono text-[10px] text-slate-400 sm:text-xs">
+                <span
+                  className="
+                    truncate
+                    font-mono
+                    text-[10px]
+                    text-slate-400
+                    sm:text-xs
+                  "
+                  title={meetingId}
+                >
                   {meetingId}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* ACTIONS */}
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* =================================================
+              RIGHT ACTIONS
+          ================================================= */}
+
+          <div
+            className="
+              flex
+              shrink-0
+              items-center
+              gap-1.5
+              sm:gap-2
+            "
+          >
             {/* MOBILE CONNECTION */}
+
             <div
               className={`
                 flex
@@ -145,6 +296,7 @@ const MeetingHeader = ({
                 ${isConnected ? "bg-emerald-500/10" : "bg-red-500/10"}
               `}
               title={isConnected ? "Connected" : "Connecting..."}
+              aria-label={isConnected ? "Connected" : "Connecting..."}
             >
               <span
                 className={`
@@ -157,9 +309,14 @@ const MeetingHeader = ({
             </div>
 
             {/* PARTICIPANTS */}
+
             <button
               type="button"
               onClick={onParticipants}
+              title="Participants"
+              aria-label={`Open participants, ${participantCount} ${
+                participantCount === 1 ? "participant" : "participants"
+              }`}
               className="
                 flex
                 h-9
@@ -175,14 +332,17 @@ const MeetingHeader = ({
                 text-slate-300
                 transition-all
                 duration-200
+                cursor-pointer
+                select-none
                 hover:border-slate-700
                 hover:bg-slate-800
                 hover:text-white
-                cursor-pointer
+                focus:outline-none
+                focus:ring-2
+                focus:ring-indigo-500/40
               "
-              title="Participants"
             >
-              <Users size={16} />
+              <Users size={16} strokeWidth={2.2} />
 
               <span className="text-xs font-medium sm:text-sm">
                 {participantCount}
@@ -190,6 +350,7 @@ const MeetingHeader = ({
             </button>
 
             {/* TIMER */}
+
             <div
               className="
                 flex
@@ -203,24 +364,49 @@ const MeetingHeader = ({
                 px-2.5
                 text-slate-300
               "
+              title="Meeting duration"
             >
-              <Clock3 size={14} />
+              <Clock3 size={14} strokeWidth={2.2} />
 
-              <span className="font-mono text-[11px] sm:text-xs">
+              <span
+                className="
+                  font-mono
+                  text-[11px]
+                  tabular-nums
+                  sm:text-xs
+                "
+              >
                 {meetingTime}
               </span>
             </div>
           </div>
         </div>
 
-        {/* COPY BUTTONS */}
-        <div className="mt-2.5 flex gap-2">
-          {/* COPY ID */}
+        {/* =================================================
+            COPY ACTIONS
+        ================================================= */}
+
+        <div
+          className="
+            mt-2.5
+            flex
+            gap-2
+          "
+        >
+          {/* =================================================
+              COPY ID
+          ================================================= */}
+
           <button
             type="button"
             onClick={copyMeetingId}
+            title={copied === "id" ? "Meeting ID copied" : "Copy meeting ID"}
+            aria-label={
+              copied === "id" ? "Meeting ID copied" : "Copy meeting ID"
+            }
             className="
               flex
+              min-h-9
               flex-1
               items-center
               justify-center
@@ -236,32 +422,52 @@ const MeetingHeader = ({
               text-slate-300
               transition-all
               duration-200
+              cursor-pointer
+              select-none
               hover:border-slate-700
               hover:bg-slate-800
               hover:text-white
-              cursor-pointer
+              focus:outline-none
+              focus:ring-2
+              focus:ring-indigo-500/40
               sm:flex-none
             "
           >
             {copied === "id" ? (
               <>
-                <Check size={14} className="text-emerald-400" />
-                Copied
+                <Check
+                  size={14}
+                  strokeWidth={2.4}
+                  className="text-emerald-400"
+                />
+
+                <span>Copied</span>
               </>
             ) : (
               <>
-                <Copy size={14} />
-                Copy ID
+                <Copy size={14} strokeWidth={2.2} />
+
+                <span>Copy ID</span>
               </>
             )}
           </button>
 
-          {/* COPY LINK */}
+          {/* =================================================
+              COPY LINK
+          ================================================= */}
+
           <button
             type="button"
             onClick={copyMeetingLink}
+            title={
+              copied === "link" ? "Meeting link copied" : "Copy meeting link"
+            }
+            aria-label={
+              copied === "link" ? "Meeting link copied" : "Copy meeting link"
+            }
             className="
               flex
+              min-h-9
               flex-1
               items-center
               justify-center
@@ -277,21 +483,28 @@ const MeetingHeader = ({
               shadow-indigo-950/30
               transition-all
               duration-200
+              cursor-pointer
+              select-none
+              hover:-translate-y-0.5
               hover:bg-indigo-700
               hover:shadow-md
-              cursor-pointer
+              focus:outline-none
+              focus:ring-2
+              focus:ring-indigo-500/50
               sm:flex-none
             "
           >
             {copied === "link" ? (
               <>
-                <Check size={14} />
-                Copied
+                <Check size={14} strokeWidth={2.4} />
+
+                <span>Copied</span>
               </>
             ) : (
               <>
-                <LinkIcon size={14} />
-                Copy Link
+                <LinkIcon size={14} strokeWidth={2.2} />
+
+                <span>Copy Link</span>
               </>
             )}
           </button>

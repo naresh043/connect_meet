@@ -1,7 +1,15 @@
-import { Users, Copy, Check } from "lucide-react";
-import { useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Check, Copy, Users } from "lucide-react";
 
 import VideoTile from "./VideoTile";
+
+const GRID_CLASSES = {
+  1: "grid-cols-1 max-w-5xl",
+  2: "grid-cols-1 md:grid-cols-2 max-w-6xl",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2",
+  default: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+};
 
 const VideoGrid = ({
   currentUser,
@@ -14,49 +22,79 @@ const VideoGrid = ({
 }) => {
   const [copied, setCopied] = useState(false);
 
-  const remoteCount = Object.keys(remoteUsers || {}).length;
-  const totalParticipants = 1 + remoteCount;
+  /*
+   * Calculate participants once per remoteUsers change.
+   */
+  const remoteParticipants = useMemo(
+    () => Object.entries(remoteUsers || {}),
+    [remoteUsers],
+  );
 
-  const getGridClass = () => {
-    if (totalParticipants === 1) {
-      return "grid-cols-1 max-w-5xl mx-auto";
+  const remoteCount = remoteParticipants.length;
+  const totalParticipants = remoteCount + 1;
+
+  /*
+   * Select the appropriate grid layout.
+   */
+  const gridClass = useMemo(() => {
+    return GRID_CLASSES[totalParticipants] || GRID_CLASSES.default;
+  }, [totalParticipants]);
+
+  /*
+   * Copy meeting ID.
+   */
+  const copyMeetingId = useCallback(async () => {
+    if (!meetingId) {
+      return;
     }
 
-    if (totalParticipants === 2) {
-      return "grid-cols-1 md:grid-cols-2 max-w-6xl mx-auto";
-    }
-
-    if (totalParticipants === 3) {
-      return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-    }
-
-    if (totalParticipants === 4) {
-      return "grid-cols-1 sm:grid-cols-2";
-    }
-
-    return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
-  };
-
-  const copyMeetingId = async () => {
     try {
       await navigator.clipboard.writeText(meetingId);
 
       setCopied(true);
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         setCopied(false);
       }, 2000);
     } catch (error) {
       console.error("Copy failed:", error);
     }
-  };
+  }, [meetingId]);
 
   return (
-    <main className="w-full px-3 pb-32 pt-4 sm:px-5 sm:pb-32 sm:pt-5 lg:px-6">
+    <main
+      className="
+        w-full
+        px-3
+        pb-32
+        pt-4
+        sm:px-5
+        sm:pb-32
+        sm:pt-5
+        lg:px-6
+      "
+    >
       {/* PARTICIPANT COUNT */}
-      <div className="mx-auto mb-4 flex max-w-7xl items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Users size={16} />
+      <div
+        className="
+          mx-auto
+          mb-4
+          flex
+          max-w-7xl
+          items-center
+          justify-between
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+            text-sm
+            text-slate-400
+          "
+        >
+          <Users size={16} aria-hidden="true" />
 
           <span>
             {totalParticipants}{" "}
@@ -74,10 +112,10 @@ const VideoGrid = ({
           gap-3
           sm:gap-4
           lg:gap-5
-          ${getGridClass()}
+          ${gridClass}
         `}
       >
-        {/* LOCAL */}
+        {/* LOCAL VIDEO */}
         {localStream && (
           <VideoTile
             stream={localStream}
@@ -89,22 +127,18 @@ const VideoGrid = ({
           />
         )}
 
-        {/* REMOTE */}
-        {Object.entries(remoteUsers || {}).map(([socketId, participant]) => {
-          const stream = remoteStreams?.[socketId];
-
-          return (
-            <VideoTile
-              key={socketId}
-              stream={stream}
-              name={participant?.name || "Participant"}
-              muted={false}
-              isLocal={false}
-              isCameraOff={Boolean(participant?.isCameraOff)}
-              isMuted={Boolean(participant?.isMuted)}
-            />
-          );
-        })}
+        {/* REMOTE VIDEOS */}
+        {remoteParticipants.map(([socketId, participant]) => (
+          <VideoTile
+            key={socketId}
+            stream={remoteStreams?.[socketId]}
+            name={participant?.name || "Participant"}
+            muted={false}
+            isLocal={false}
+            isCameraOff={Boolean(participant?.isCameraOff)}
+            isMuted={Boolean(participant?.isMuted)}
+          />
+        ))}
       </div>
 
       {/* WAITING STATE */}
@@ -120,6 +154,7 @@ const VideoGrid = ({
               shadow-lg
             "
           >
+            {/* ICON */}
             <div
               className="
                 mx-auto
@@ -133,17 +168,34 @@ const VideoGrid = ({
                 text-indigo-400
               "
             >
-              <Users size={21} />
+              <Users size={21} aria-hidden="true" />
             </div>
 
-            <h3 className="mt-4 text-sm font-semibold text-white">
+            {/* TITLE */}
+            <h3
+              className="
+                mt-4
+                text-sm
+                font-semibold
+                text-white
+              "
+            >
               Waiting for another participant
             </h3>
 
-            <p className="mt-1.5 text-xs leading-5 text-slate-500">
+            {/* DESCRIPTION */}
+            <p
+              className="
+                mt-1.5
+                text-xs
+                leading-5
+                text-slate-500
+              "
+            >
               Share the meeting ID below to invite someone to this meeting.
             </p>
 
+            {/* MEETING ID */}
             <div className="mt-4 flex items-center gap-2">
               <div
                 className="
@@ -165,6 +217,7 @@ const VideoGrid = ({
                 <span className="block truncate">{meetingId}</span>
               </div>
 
+              {/* COPY BUTTON */}
               <button
                 type="button"
                 onClick={copyMeetingId}
@@ -173,24 +226,43 @@ const VideoGrid = ({
                   h-10
                   w-10
                   shrink-0
+                  cursor-pointer
                   items-center
                   justify-center
                   rounded-xl
                   bg-indigo-600
                   text-white
-                  transition-all
+                  transition-colors
                   duration-200
                   hover:bg-indigo-700
-                  cursor-pointer
+                  focus-visible:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-indigo-400
+                  focus-visible:ring-offset-2
+                  focus-visible:ring-offset-slate-950
                 "
                 title="Copy meeting ID"
+                aria-label="Copy meeting ID"
               >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? (
+                  <Check size={16} aria-hidden="true" />
+                ) : (
+                  <Copy size={16} aria-hidden="true" />
+                )}
               </button>
             </div>
 
+            {/* COPY SUCCESS */}
             {copied && (
-              <p className="mt-2 text-xs font-medium text-emerald-400">
+              <p
+                className="
+                  mt-2
+                  text-xs
+                  font-medium
+                  text-emerald-400
+                "
+                role="status"
+              >
                 Meeting ID copied
               </p>
             )}
@@ -201,4 +273,4 @@ const VideoGrid = ({
   );
 };
 
-export default VideoGrid;
+export default memo(VideoGrid);

@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import useWebRTC from "../hooks/useWebRTC";
 import useMeetingTimer from "../hooks/useMeetingTimer";
 
+import PreJoinMeeting from "../components/meeting/PreJoinMeeting";
+
 import MeetingHeader from "../components/meeting/MeetingHeader";
 import ParticipantPanel from "../components/meeting/ParticipantPanel";
 import VideoGrid from "../components/meeting/VideoGrid";
@@ -13,7 +15,7 @@ const Meeting = () => {
   const { meetingId } = useParams();
   const navigate = useNavigate();
 
-  const [showParticipants, setShowParticipants] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
 
   const [currentUser] = useState(() => {
     try {
@@ -24,6 +26,36 @@ const Meeting = () => {
       return null;
     }
   });
+
+  const handleJoin = () => {
+    setHasJoined(true);
+  };
+
+  if (!hasJoined) {
+    return (
+      <PreJoinMeeting
+        meetingId={meetingId}
+        currentUser={currentUser}
+        onJoin={handleJoin}
+      />
+    );
+  }
+
+  return (
+    <MeetingRoom
+      meetingId={meetingId}
+      currentUser={currentUser}
+      navigate={navigate}
+    />
+  );
+};
+
+/* =====================================================
+   ACTUAL MEETING ROOM
+===================================================== */
+
+const MeetingRoom = ({ meetingId, currentUser, navigate }) => {
+  const [showParticipants, setShowParticipants] = useState(false);
 
   const {
     localStream,
@@ -55,16 +87,24 @@ const Meeting = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white overflow-x-hidden">
+    <div
+      className="
+        min-h-screen
+        overflow-x-hidden
+        bg-slate-950
+        text-white
+      "
+    >
+      {/* HEADER */}
       <MeetingHeader
         meetingId={meetingId}
-        currentUser={currentUser}
         participantCount={participantCount}
         isConnected={isConnected}
         meetingTime={meetingTime}
-        onParticipants={() => setShowParticipants((prev) => !prev)}
+        onParticipants={() => setShowParticipants((previous) => !previous)}
       />
 
+      {/* PARTICIPANTS */}
       {showParticipants && (
         <ParticipantPanel
           currentUser={currentUser}
@@ -76,6 +116,7 @@ const Meeting = () => {
         />
       )}
 
+      {/* VIDEO GRID */}
       <VideoGrid
         currentUser={currentUser}
         localStream={localStream}
@@ -86,12 +127,14 @@ const Meeting = () => {
         meetingId={meetingId}
       />
 
+      {/* CONTROLS */}
       <MeetingControls
         isMuted={isMuted}
         isCameraOff={isCameraOff}
         onToggleMic={toggleMicrophone}
         onToggleCamera={toggleCamera}
         onLeave={handleLeave}
+        onParticipants={() => setShowParticipants((previous) => !previous)}
       />
     </div>
   );

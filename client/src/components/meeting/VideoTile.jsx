@@ -1,11 +1,67 @@
-import {
-  Mic,
-  MicOff,
-  VideoOff,
-  Volume2,
-} from "lucide-react";
+import { memo, useEffect, useRef } from "react";
+import { Mic, MicOff, VideoOff } from "lucide-react";
 
-import { useEffect, useRef } from "react";
+const VIDEO_CLASS = `
+  h-full
+  w-full
+  bg-slate-950
+  object-cover
+`;
+
+const TILE_CLASS = `
+  group
+  relative
+  aspect-video
+  overflow-hidden
+  rounded-2xl
+  border
+  border-slate-700/80
+  bg-slate-900
+  shadow-lg
+  shadow-black/20
+`;
+
+const GRADIENT_CLASS = `
+  pointer-events-none
+  absolute
+  inset-x-0
+  bottom-0
+  h-24
+  bg-gradient-to-t
+  from-black/70
+  to-transparent
+`;
+
+const LABEL_CLASS = `
+  flex
+  min-w-0
+  max-w-[75%]
+  items-center
+  gap-2
+  rounded-lg
+  border
+  border-white/10
+  bg-black/55
+  px-3
+  py-2
+  text-sm
+  text-white
+  shadow-sm
+  backdrop-blur-md
+`;
+
+const ICON_BUTTON_CLASS = `
+  flex
+  h-9
+  w-9
+  shrink-0
+  items-center
+  justify-center
+  rounded-lg
+  border
+  border-white/10
+  backdrop-blur-md
+`;
 
 const VideoTile = ({
   stream,
@@ -17,66 +73,60 @@ const VideoTile = ({
 }) => {
   const videoRef = useRef(null);
 
+  /*
+   * Attach the MediaStream directly to the video element.
+   *
+   * We intentionally don't put isCameraOff in this dependency list.
+   * The video element remains mounted and we only attach/detach the
+   * actual stream when necessary.
+   */
   useEffect(() => {
-    if (!videoRef.current) {
+    const video = videoRef.current;
+
+    if (!video) {
       return;
     }
 
-    if (stream && !isCameraOff) {
-      videoRef.current.srcObject = stream;
-    } else {
-      videoRef.current.srcObject = null;
-    }
+    video.srcObject = stream || null;
 
     return () => {
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      video.srcObject = null;
     };
-  }, [stream, isCameraOff]);
+  }, [stream]);
 
-  const getInitial = () => {
-    if (!name) {
-      return "P";
-    }
+  const initial = name?.trim()?.charAt(0)?.toUpperCase() || "P";
 
-    return name.trim().charAt(0).toUpperCase();
-  };
+  const videoClassName = `
+    ${VIDEO_CLASS}
+    ${isLocal ? "scale-x-[-1]" : ""}
+    ${isCameraOff ? "opacity-0" : "opacity-100"}
+  `;
 
   return (
-    <div
-      className="
-        group
-        relative
-        aspect-video
-        overflow-hidden
-        rounded-2xl
-        border
-        border-slate-700/80
-        bg-slate-900
-        shadow-lg
-        shadow-black/20
-      "
-    >
+    <div className={TILE_CLASS}>
       {/* VIDEO */}
-      {!isCameraOff && stream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={muted}
-          className="
-            h-full
-            w-full
-            object-cover
-            bg-slate-950
-          "
-        />
-      )}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={muted}
+        aria-label={`${name}${isLocal ? " (You)" : ""} video`}
+        className={videoClassName}
+      />
 
-      {/* CAMERA OFF */}
+      {/* CAMERA OFF AVATAR */}
       {isCameraOff && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+        <div
+          className="
+            absolute
+            inset-0
+            flex
+            items-center
+            justify-center
+            bg-slate-900
+          "
+          aria-label={`${name} camera is off`}
+        >
           <div
             className="
               flex
@@ -94,79 +144,49 @@ const VideoTile = ({
             "
           >
             <span className="text-3xl font-bold sm:text-4xl">
-              {getInitial()}
+              {initial}
             </span>
           </div>
         </div>
       )}
 
-      {/* SUBTLE BOTTOM GRADIENT */}
+      {/* BOTTOM GRADIENT */}
+      <div className={GRADIENT_CLASS} />
+
+      {/* NAME + MICROPHONE */}
       <div
         className="
-          pointer-events-none
           absolute
-          inset-x-0
-          bottom-0
-          h-24
-          bg-gradient-to-t
-          from-black/70
-          to-transparent
+          bottom-3
+          left-3
+          right-3
+          flex
+          items-center
+          justify-between
+          gap-3
         "
-      />
-
-      {/* NAME + MIC */}
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-3">
+      >
         {/* NAME */}
-        <div
-          className="
-            flex
-            min-w-0
-            max-w-[75%]
-            items-center
-            gap-2
-            rounded-lg
-            border
-            border-white/10
-            bg-black/55
-            px-3
-            py-2
-            text-sm
-            text-white
-            shadow-sm
-            backdrop-blur-md
-          "
-        >
+        <div className={LABEL_CLASS}>
           <span className="truncate font-medium">
             {name}
             {isLocal && " (You)"}
           </span>
         </div>
 
-        {/* MIC */}
+        {/* MICROPHONE */}
         <div
           className={`
-            flex
-            h-9
-            w-9
-            shrink-0
-            items-center
-            justify-center
-            rounded-lg
-            border
-            border-white/10
-            backdrop-blur-md
+            ${ICON_BUTTON_CLASS}
             ${
               isMuted
                 ? "bg-red-500/90 text-white"
                 : "bg-black/55 text-slate-200"
             }
           `}
+          aria-label={isMuted ? "Microphone muted" : "Microphone active"}
         >
-          {isMuted ? (
-            <MicOff size={16} />
-          ) : (
-            <Mic size={16} />
-          )}
+          {isMuted ? <MicOff size={16} /> : <Mic size={16} />}
         </div>
       </div>
 
@@ -189,6 +209,7 @@ const VideoTile = ({
             text-white
             shadow-sm
           "
+          aria-label="Camera off"
         >
           <VideoOff size={16} />
         </div>
@@ -225,4 +246,4 @@ const VideoTile = ({
   );
 };
 
-export default VideoTile;
+export default memo(VideoTile);
