@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const Message = require("../models/Message");
 const Meeting = require("../models/Meeting");
+const Participant = require("../models/Participant");
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -12,6 +13,12 @@ const MAX_LIMIT = 100;
  * =====================================================
  *
  * GET /api/meetings/:meetingId/messages
+ *
+ * Authentication:
+ * Required
+ *
+ * Authorization:
+ * User must be a participant or host of the meeting.
  */
 
 const getChatMessages = async (req, res, next) => {
@@ -35,13 +42,41 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
+     * GET AUTHENTICATED USER
+     * =====================================================
+     */
+
+    const userId = req.user?.id || req.user?._id || req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Authenticated user not found.",
+      });
+    }
+
+    /**
+     * =====================================================
+     * VALIDATE USER OBJECT ID
+     * =====================================================
+     */
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authenticated user.",
+      });
+    }
+
+    /**
+     * =====================================================
      * FIND MEETING
      * =====================================================
      */
 
     const meeting = await Meeting.findOne({
       meetingId: roomId,
-    }).select("_id meetingId status host");
+    }).select("_id meetingId status");
 
     if (!meeting) {
       return res.status(404).json({
@@ -52,7 +87,25 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * PARSE PAGINATION
+     * VERIFY USER IS A MEETING PARTICIPANT
+     * =====================================================
+     */
+
+    const participant = await Participant.findOne({
+      meeting: meeting._id,
+      user: userId,
+    }).select("_id role");
+
+    if (!participant) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to access this meeting chat.",
+      });
+    }
+
+    /**
+     * =====================================================
+     * PAGINATION
      * =====================================================
      */
 
@@ -65,21 +118,25 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * OPTIONAL CURSOR
+     * BUILD MESSAGE QUERY
      * =====================================================
-     *
-     * `before` contains a MongoDB message _id.
-     *
-     * Example:
-     *
-     * ?limit=50&before=665abc...
      */
-
-    const before = req.query.before;
 
     const query = {
       meeting: meeting._id,
     };
+
+    /**
+     * =====================================================
+     * CURSOR PAGINATION
+     * =====================================================
+     *
+     * Example:
+     *
+     * ?limit=50&before=MESSAGE_ID
+     */
+
+    const before = req.query.before;
 
     if (before) {
       if (!mongoose.Types.ObjectId.isValid(before)) {
@@ -125,7 +182,7 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * CHECK MORE MESSAGES
+     * CHECK WHETHER MORE MESSAGES EXIST
      * =====================================================
      */
 
@@ -137,7 +194,7 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * RESTORE CHRONOLOGICAL ORDER
+     * CONVERT TO CHRONOLOGICAL ORDER
      * =====================================================
      */
 
@@ -145,7 +202,7 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * FORMAT RESPONSE
+     * FORMAT FOR FRONTEND
      * =====================================================
      */
 
@@ -154,9 +211,9 @@ const getChatMessages = async (req, res, next) => {
 
       meetingId: meeting.meetingId,
 
-      senderId: message.sender._id.toString(),
+      senderId: message.sender?._id ? message.sender._id.toString() : "",
 
-      senderName: message.sender.name || "Participant",
+      senderName: message.sender?.name || "Participant",
 
       text: message.text,
 
@@ -186,14 +243,14 @@ const getChatMessages = async (req, res, next) => {
 
         pagination: {
           limit,
-
           hasMore,
-
           nextCursor,
         },
       },
     });
   } catch (error) {
+    console.error("❌ Get chat history error:", error);
+
     next(error);
   }
 };
