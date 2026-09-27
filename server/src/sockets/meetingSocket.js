@@ -1,54 +1,213 @@
 const SOCKET_EVENTS = require("./socketEvents");
 
+/*
+ * =====================================================
+ * CONNECTED USERS
+ * =====================================================
+ *
+ * socketId -> {
+ *   meetingId,
+ *   user
+ * }
+ */
+
 const connectedUsers = new Map();
+
+/*
+ * =====================================================
+ * USER CONNECTION INDEX
+ * =====================================================
+ *
+ * `${meetingId}:${userId}` -> socketId
+ *
+ * This prevents the same user from creating multiple
+ * participant entries in the same meeting.
+ */
+
+const userMeetingSockets = new Map();
+
+const getUserId = (user) => {
+  return user?.id || user?._id?.toString() || user?.userId || null;
+};
+
+const getUserMeetingKey = (meetingId, userId) => {
+  return `${meetingId}:${userId}`;
+};
+
+const removeSocketFromIndexes = (socketId) => {
+  const participant = connectedUsers.get(socketId);
+
+  if (!participant) {
+    return;
+  }
+
+  const userId = getUserId(participant.user);
+
+  if (userId && participant.meetingId) {
+    const key = getUserMeetingKey(participant.meetingId, userId);
+
+    if (userMeetingSockets.get(key) === socketId) {
+      userMeetingSockets.delete(key);
+    }
+  }
+
+  connectedUsers.delete(socketId);
+};
 
 const meetingSocket = (io, socket) => {
   let currentMeetingId = null;
 
-  /*
-  =====================================================
-  JOIN ROOM
-  =====================================================
-  */
+  /**
+   * =====================================================
+   * JOIN ROOM
+   * =====================================================
+   */
 
-  socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ meetingId, user }) => {
+  socket.on(SOCKET_EVENTS.JOIN_ROOM, ({ meetingId, user } = {}) => {
     try {
-      if (!meetingId) {
+      if (typeof meetingId !== "string" || !meetingId.trim()) {
         console.warn("⚠️ JOIN_ROOM missing meetingId");
+        return;
+      }
+
+      const roomId = meetingId.trim();
+
+      /**
+       * =================================================
+       * NORMALIZE USER
+       * =================================================
+       */
+
+      const normalizedUser = {
+        ...(user || {}),
+
+        name:
+          typeof user?.name === "string" && user.name.trim()
+            ? user.name.trim()
+            : "Participant",
+
+        isMuted: user?.isMuted ?? false,
+
+        isCameraOff: user?.isCameraOff ?? false,
+      };
+
+      const userId = getUserId(normalizedUser);
+
+      /**
+       * =================================================
+       * USER ID IS REQUIRED
+       * =================================================
+       */
+
+      if (!userId) {
+        console.warn(`⚠️ JOIN_ROOM rejected: missing user ID (${socket.id})`);
+
+        socket.emit("meeting-error", {
+          message: "User identity is required to join the meeting.",
+        });
 
         return;
       }
 
-      /*
-        =============================================
-        NORMALIZE USER
-        =============================================
-        */
+      /**
+       * =================================================
+       * HANDLE ALREADY JOINED SOCKET
+       * =================================================
+       */
 
-      socket.data.user = {
-        ...(user || {}),
-        name: user?.name || "Participant",
-        isMuted: user?.isMuted ?? false,
-        isCameraOff: user?.isCameraOff ?? false,
-      };
+      if (currentMeetingId) {
+        console.warn(
+          `⚠️ Socket ${socket.id} already joined ${currentMeetingId}`,
+        );
 
-      /*
-        =============================================
-        JOIN SOCKET.IO ROOM
-        =============================================
-        */
+        return;
+      }
 
-      socket.join(meetingId);
+      /**
+       * =================================================
+       * CHECK DUPLICATE USER
+       * =================================================
+       */
 
-      currentMeetingId = meetingId;
+      const userMeetingKey = getUserMeetingKey(roomId, userId);
 
-      /*
-        =============================================
-        GET EXISTING USERS
-        =============================================
-        */
+      const existingSocketId = userMeetingSockets.get(userMeetingKey);
 
-      const room = io.sockets.adapter.rooms.get(meetingId);
+      if (existingSocketId && existingSocketId !== socket.id) {
+        const existingSocket = io.sockets.sockets.get(existingSocketId);
+
+        console.log(
+          `♻️ Replacing duplicate connection | user=${normalizedUser.name} | old=${existingSocketId} | new=${socket.id}`,
+        );
+
+        /*
+         * Notify existing participants that the old
+         * connection is leaving.
+         */
+
+        if (existingSocket) {
+          existingSocket.to(roomId).emit(SOCKET_EVENTS.USER_LEFT, {
+            socketId: existingSocketId,
+          });
+
+          /*
+           * Remove old socket from Socket.IO room.
+           */
+
+          existingSocket.leave(roomId);
+
+          /*
+           * Disconnect old socket.
+           */
+
+          existingSocket.disconnect(true);
+        }
+
+        /*
+         * Remove old backend index entry.
+         */
+
+        removeSocketFromIndexes(existingSocketId);
+      }
+
+      /**
+       * =================================================
+       * STORE USER ON SOCKET
+       * =================================================
+       */
+
+      socket.data.user = normalizedUser;
+
+      /**
+       * =================================================
+       * JOIN SOCKET.IO ROOM
+       * =================================================
+       */
+
+      socket.join(roomId);
+
+      currentMeetingId = roomId;
+
+      /**
+       * =================================================
+       * SAVE SOCKET
+       * =================================================
+       */
+
+      connectedUsers.set(socket.id, {
+        meetingId: roomId,
+        user: normalizedUser,
+      });
+
+      userMeetingSockets.set(userMeetingKey, socket.id);
+
+      /**
+       * =================================================
+       * GET EXISTING USERS
+       * =================================================
+       */
+
+      const room = io.sockets.adapter.rooms.get(roomId);
 
       const existingUsers = [];
 
@@ -60,10 +219,25 @@ const meetingSocket = (io, socket) => {
 
           const participant = connectedUsers.get(socketId);
 
+          if (!participant) {
+            return;
+          }
+
+          /*
+           * Extra protection:
+           * Don't return duplicate users.
+           */
+
+          const participantUserId = getUserId(participant.user);
+
+          if (participantUserId === userId) {
+            return;
+          }
+
           existingUsers.push({
             socketId,
 
-            user: participant?.user || {
+            user: participant.user || {
               name: "Participant",
               isMuted: false,
               isCameraOff: false,
@@ -72,39 +246,38 @@ const meetingSocket = (io, socket) => {
         });
       }
 
-      /*
-        =============================================
-        SAVE CURRENT USER
-        =============================================
-        */
-
-      connectedUsers.set(socket.id, {
-        meetingId,
-        user: socket.data.user,
-      });
-
-      /*
-        =============================================
-        SEND EXISTING USERS
-        =============================================
-        */
+      /**
+       * =================================================
+       * SEND EXISTING USERS
+       * =================================================
+       */
 
       socket.emit(SOCKET_EVENTS.EXISTING_USERS, {
         users: existingUsers,
       });
 
-      /*
-        =============================================
-        NOTIFY EXISTING USERS
-        =============================================
-        */
+      /**
+       * =================================================
+       * NOTIFY EXISTING USERS
+       * =================================================
+       */
 
-      socket.to(meetingId).emit(SOCKET_EVENTS.USER_JOINED, {
+      socket.to(roomId).emit(SOCKET_EVENTS.USER_JOINED, {
         socketId: socket.id,
-        user: socket.data.user,
+        user: normalizedUser,
       });
 
-      console.log(`👤 ${socket.data.user.name} joined ${meetingId}`);
+      /**
+       * =================================================
+       * LOG
+       * =================================================
+       */
+
+      console.log(`👤 ${normalizedUser.name} joined ${roomId}`);
+
+      console.log(`🆔 User ID: ${userId}`);
+
+      console.log(`🔌 Socket ID: ${socket.id}`);
 
       console.log(`👥 Existing users: ${existingUsers.length}`);
     } catch (error) {
@@ -112,30 +285,17 @@ const meetingSocket = (io, socket) => {
     }
   });
 
-  /*
-  =====================================================
-  CAMERA TOGGLE
-  =====================================================
-  */
+  /**
+   * =====================================================
+   * CAMERA TOGGLE
+   * =====================================================
+   */
 
-  socket.on("camera-toggle", ({ meetingId, isCameraOff }) => {
+  socket.on("camera-toggle", ({ meetingId, isCameraOff } = {}) => {
     try {
-      if (!meetingId) {
+      if (!meetingId || currentMeetingId !== meetingId) {
         return;
       }
-
-      /*
-        Make sure user belongs
-        to this meeting.
-        */
-
-      if (currentMeetingId !== meetingId) {
-        return;
-      }
-
-      /*
-        Update stored user state
-        */
 
       const participant = connectedUsers.get(socket.id);
 
@@ -148,10 +308,6 @@ const meetingSocket = (io, socket) => {
         connectedUsers.set(socket.id, participant);
       }
 
-      /*
-        Send to everyone else
-        */
-
       socket.to(meetingId).emit("camera-toggle", {
         socketId: socket.id,
         isCameraOff: Boolean(isCameraOff),
@@ -163,25 +319,17 @@ const meetingSocket = (io, socket) => {
     }
   });
 
-  /*
-  =====================================================
-  MIC TOGGLE
-  =====================================================
-  */
+  /**
+   * =====================================================
+   * MIC TOGGLE
+   * =====================================================
+   */
 
-  socket.on("mic-toggle", ({ meetingId, isMuted }) => {
+  socket.on("mic-toggle", ({ meetingId, isMuted } = {}) => {
     try {
-      if (!meetingId) {
+      if (!meetingId || currentMeetingId !== meetingId) {
         return;
       }
-
-      if (currentMeetingId !== meetingId) {
-        return;
-      }
-
-      /*
-        Update stored user state
-        */
 
       const participant = connectedUsers.get(socket.id);
 
@@ -194,10 +342,6 @@ const meetingSocket = (io, socket) => {
         connectedUsers.set(socket.id, participant);
       }
 
-      /*
-        Send to everyone else
-        */
-
       socket.to(meetingId).emit("mic-toggle", {
         socketId: socket.id,
         isMuted: Boolean(isMuted),
@@ -209,11 +353,11 @@ const meetingSocket = (io, socket) => {
     }
   });
 
-  /*
-  =====================================================
-  LEAVE ROOM
-  =====================================================
-  */
+  /**
+   * =====================================================
+   * LEAVE ROOM
+   * =====================================================
+   */
 
   socket.on(SOCKET_EVENTS.LEAVE_ROOM, (meetingId) => {
     try {
@@ -231,7 +375,7 @@ const meetingSocket = (io, socket) => {
 
       socket.leave(roomId);
 
-      connectedUsers.delete(socket.id);
+      removeSocketFromIndexes(socket.id);
 
       currentMeetingId = null;
     } catch (error) {
@@ -239,13 +383,13 @@ const meetingSocket = (io, socket) => {
     }
   });
 
-  /*
-  =====================================================
-  DISCONNECT
-  =====================================================
-  */
+  /**
+   * =====================================================
+   * DISCONNECT
+   * =====================================================
+   */
 
-  socket.on("disconnect", (reason) => {
+  socket.on(SOCKET_EVENTS.DISCONNECT, (reason) => {
     console.log(`🔴 Socket disconnected: ${socket.id}`, reason);
 
     if (currentMeetingId) {
@@ -256,7 +400,7 @@ const meetingSocket = (io, socket) => {
       console.log(`👋 Notified ${currentMeetingId} about ${socket.id}`);
     }
 
-    connectedUsers.delete(socket.id);
+    removeSocketFromIndexes(socket.id);
 
     currentMeetingId = null;
   });
