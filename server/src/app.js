@@ -1,7 +1,7 @@
 const express = require("express");
 
 const cors = require("cors");
-
+const chatRoutes = require("./src/routes/chatRoutes");
 const app = express();
 
 /*
@@ -72,6 +72,8 @@ app.use("/api/auth", require("./routes/authRoutes"));
 // *Meeting routes*
 
 app.use("/api/meetings", require("./routes/meetingRoutes"));
+
+app.use("/api/meetings", chatRoutes);
 
 // *Message routes*
 

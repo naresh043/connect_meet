@@ -13,6 +13,7 @@ const SOCKET_EVENTS = {
 
   SEND_MESSAGE: "send-message",
   RECEIVE_MESSAGE: "receive-message",
+  CHAT_ERROR: "chat-error",
 
   CAMERA_TOGGLE: "camera-toggle",
   MIC_TOGGLE: "mic-toggle",

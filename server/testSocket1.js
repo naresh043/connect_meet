@@ -5,8 +5,8 @@ const SERVER_URL = "http://localhost:5000";
 const MEETING_ID = "TEST123";
 
 const USER = {
-  id: "test-user-1",
-  name: "Rahul",
+  id: "test-user-2",
+  name: "Naresh",
 };
 
 const socket = io(SERVER_URL, {

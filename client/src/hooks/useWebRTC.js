@@ -1091,6 +1091,7 @@ const useWebRTC = (meetingId) => {
     remoteUsers,
 
     currentUser,
+    socket: socketRef.current,
 
     isMuted,
     isCameraOff,

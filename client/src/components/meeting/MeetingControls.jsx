@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Phone,
+  MessageCircle,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -18,6 +19,7 @@ const MeetingControls = ({
   onToggleCamera,
   onLeave,
   onParticipants,
+  onChat,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -29,9 +31,7 @@ const MeetingControls = ({
 
   const copyMeetingLink = async () => {
     try {
-      await navigator.clipboard.writeText(
-        window.location.href,
-      );
+      await navigator.clipboard.writeText(window.location.href);
 
       setCopied(true);
 
@@ -110,16 +110,8 @@ const MeetingControls = ({
         <button
           type="button"
           onClick={onToggleMic}
-          title={
-            isMuted
-              ? "Unmute microphone"
-              : "Mute microphone"
-          }
-          aria-label={
-            isMuted
-              ? "Unmute microphone"
-              : "Mute microphone"
-          }
+          title={isMuted ? "Unmute microphone" : "Mute microphone"}
+          aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
           aria-pressed={isMuted}
           className={`
             ${baseButtonClass}
@@ -156,16 +148,8 @@ const MeetingControls = ({
         <button
           type="button"
           onClick={onToggleCamera}
-          title={
-            isCameraOff
-              ? "Turn camera on"
-              : "Turn camera off"
-          }
-          aria-label={
-            isCameraOff
-              ? "Turn camera on"
-              : "Turn camera off"
-          }
+          title={isCameraOff ? "Turn camera on" : "Turn camera off"}
+          aria-label={isCameraOff ? "Turn camera on" : "Turn camera off"}
           aria-pressed={isCameraOff}
           className={`
             ${baseButtonClass}
@@ -215,6 +199,21 @@ const MeetingControls = ({
         >
           <Users size={19} strokeWidth={2.2} />
         </button>
+        <button
+          type="button"
+          onClick={onChat}
+          title="Meeting chat"
+          aria-label="Open meeting chat"
+          className={`
+    ${baseButtonClass}
+    bg-slate-800
+    text-slate-200
+    hover:bg-slate-700
+    hover:text-white
+  `}
+        >
+          <MessageCircle size={19} strokeWidth={2.2} />
+        </button>
 
         {/* =================================================
             COPY MEETING LINK
@@ -223,16 +222,8 @@ const MeetingControls = ({
         <button
           type="button"
           onClick={copyMeetingLink}
-          title={
-            copied
-              ? "Meeting link copied"
-              : "Copy meeting link"
-          }
-          aria-label={
-            copied
-              ? "Meeting link copied"
-              : "Copy meeting link"
-          }
+          title={copied ? "Meeting link copied" : "Copy meeting link"}
+          aria-label={copied ? "Meeting link copied" : "Copy meeting link"}
           className={`
             ${baseButtonClass}
 
@@ -243,16 +234,9 @@ const MeetingControls = ({
           `}
         >
           {copied ? (
-            <Check
-              size={19}
-              strokeWidth={2.4}
-              className="text-emerald-400"
-            />
+            <Check size={19} strokeWidth={2.4} className="text-emerald-400" />
           ) : (
-            <Copy
-              size={19}
-              strokeWidth={2.2}
-            />
+            <Copy size={19} strokeWidth={2.2} />
           )}
         </button>
 
@@ -293,11 +277,7 @@ const MeetingControls = ({
             focus:ring-red-500/40
           `}
         >
-          <Phone
-            size={19}
-            strokeWidth={2.2}
-            className="rotate-[135deg]"
-          />
+          <Phone size={19} strokeWidth={2.2} className="rotate-[135deg]" />
         </button>
       </div>
     </div>

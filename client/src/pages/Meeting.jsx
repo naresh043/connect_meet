@@ -20,7 +20,7 @@ import MeetingHeader from "../components/meeting/MeetingHeader";
 import ParticipantPanel from "../components/meeting/ParticipantPanel";
 import VideoGrid from "../components/meeting/VideoGrid";
 import MeetingControls from "../components/meeting/MeetingControls";
-
+import ChatPanel from "../components/meeting/chat/ChatPanel";
 /*
  * =====================================================
  * MAIN MEETING PAGE
@@ -97,6 +97,7 @@ const Meeting = () => {
 
 const MeetingRoom = ({ meetingId, currentUser, navigate }) => {
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   /*
    * Leave confirmation state.
@@ -123,6 +124,8 @@ const MeetingRoom = ({ meetingId, currentUser, navigate }) => {
     localStream,
     remoteStreams,
     remoteUsers,
+    currentUser: meetingUser,
+    socket,
     isMuted,
     isCameraOff,
     isConnected,
@@ -369,7 +372,17 @@ const MeetingRoom = ({ meetingId, currentUser, navigate }) => {
         onToggleCamera={toggleCamera}
         onLeave={handleLeaveRequest}
         onParticipants={() => setShowParticipants((previous) => !previous)}
+        onChat={() => setShowChat((previous) => !previous)}
       />
+
+      {showChat && (
+        <ChatPanel
+          meetingId={meetingId}
+          currentUser={meetingUser || currentUser}
+          socket={socket}
+          onClose={() => setShowChat(false)}
+        />
+      )}
 
       {/* =================================================
           LEAVE CONFIRMATION
