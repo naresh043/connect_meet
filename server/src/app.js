@@ -1,7 +1,7 @@
 const express = require("express");
 
 const cors = require("cors");
-const chatRoutes = require("./src/routes/chatRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 const app = express();
 
 /*
