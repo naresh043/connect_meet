@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Mic, MicOff, VideoOff } from "lucide-react";
 
 const VIDEO_CLASS = `
@@ -74,12 +74,11 @@ const VideoTile = ({
   const videoRef = useRef(null);
 
   /*
-   * Attach the MediaStream directly to the video element.
-   *
-   * We intentionally don't put isCameraOff in this dependency list.
-   * The video element remains mounted and we only attach/detach the
-   * actual stream when necessary.
+   * =====================================================
+   * ATTACH STREAM
+   * =====================================================
    */
+
   useEffect(() => {
     const video = videoRef.current;
 
@@ -87,24 +86,84 @@ const VideoTile = ({
       return;
     }
 
-    video.srcObject = stream || null;
+    if (!stream) {
+      video.srcObject = null;
+      return;
+    }
+
+    video.srcObject = stream;
+
+    /*
+     * Some browsers, especially mobile browsers,
+     * may need an explicit play() after assigning srcObject.
+     */
+
+    const playVideo = async () => {
+      try {
+        await video.play();
+      } catch (error) {
+        /*
+         * Autoplay restrictions can happen on mobile.
+         * The browser may start playback automatically
+         * once the media becomes available.
+         */
+        console.debug("Video autoplay waiting:", error?.message);
+      }
+    };
+
+    playVideo();
 
     return () => {
-      video.srcObject = null;
+      if (video.srcObject === stream) {
+        video.srcObject = null;
+      }
     };
   }, [stream]);
+
+  /*
+   * =====================================================
+   * CHECK WHETHER A USABLE VIDEO TRACK EXISTS
+   * =====================================================
+   */
+
+  const hasUsableVideoTrack = useMemo(() => {
+    if (!stream) {
+      return false;
+    }
+
+    const videoTracks = stream.getVideoTracks();
+
+    return videoTracks.some(
+      (track) => track.readyState === "live" && track.enabled !== false,
+    );
+  }, [stream]);
+
+  /*
+   * =====================================================
+   * SHOW AVATAR WHEN:
+   *
+   * 1. Camera is explicitly OFF
+   * OR
+   * 2. No usable video stream exists
+   * =====================================================
+   */
+
+  const showAvatar = isCameraOff || !hasUsableVideoTrack;
 
   const initial = name?.trim()?.charAt(0)?.toUpperCase() || "P";
 
   const videoClassName = `
     ${VIDEO_CLASS}
     ${isLocal ? "scale-x-[-1]" : ""}
-    ${isCameraOff ? "opacity-0" : "opacity-100"}
+    ${showAvatar ? "opacity-0" : "opacity-100"}
   `;
 
   return (
     <div className={TILE_CLASS}>
-      {/* VIDEO */}
+      {/* =================================================
+          VIDEO
+          ================================================= */}
+
       <video
         ref={videoRef}
         autoPlay
@@ -114,8 +173,11 @@ const VideoTile = ({
         className={videoClassName}
       />
 
-      {/* CAMERA OFF AVATAR */}
-      {isCameraOff && (
+      {/* =================================================
+          AVATAR FALLBACK
+          ================================================= */}
+
+      {showAvatar && (
         <div
           className="
             absolute
@@ -125,7 +187,7 @@ const VideoTile = ({
             justify-center
             bg-slate-900
           "
-          aria-label={`${name} camera is off`}
+          aria-label={`${name} video unavailable`}
         >
           <div
             className="
@@ -143,17 +205,21 @@ const VideoTile = ({
               sm:w-24
             "
           >
-            <span className="text-3xl font-bold sm:text-4xl">
-              {initial}
-            </span>
+            <span className="text-3xl font-bold sm:text-4xl">{initial}</span>
           </div>
         </div>
       )}
 
-      {/* BOTTOM GRADIENT */}
+      {/* =================================================
+          GRADIENT
+          ================================================= */}
+
       <div className={GRADIENT_CLASS} />
 
-      {/* NAME + MICROPHONE */}
+      {/* =================================================
+          NAME + MICROPHONE
+          ================================================= */}
+
       <div
         className="
           absolute
@@ -167,6 +233,7 @@ const VideoTile = ({
         "
       >
         {/* NAME */}
+
         <div className={LABEL_CLASS}>
           <span className="truncate font-medium">
             {name}
@@ -175,6 +242,7 @@ const VideoTile = ({
         </div>
 
         {/* MICROPHONE */}
+
         <div
           className={`
             ${ICON_BUTTON_CLASS}
@@ -190,7 +258,10 @@ const VideoTile = ({
         </div>
       </div>
 
-      {/* CAMERA OFF INDICATOR */}
+      {/* =================================================
+          CAMERA OFF INDICATOR
+          ================================================= */}
+
       {isCameraOff && (
         <div
           className="
@@ -215,7 +286,10 @@ const VideoTile = ({
         </div>
       )}
 
-      {/* LOCAL INDICATOR */}
+      {/* =================================================
+          LOCAL INDICATOR
+          ================================================= */}
+
       {isLocal && (
         <div
           className="
