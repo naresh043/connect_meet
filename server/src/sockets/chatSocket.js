@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const Message = require("../models/Message");
 const Meeting = require("../models/Meeting");
+const Participant = require("../models/Participant");
+
 const SOCKET_EVENTS = require("./socketEvents");
 
 const MAX_MESSAGE_LENGTH = 1000;
@@ -93,14 +95,12 @@ const chatSocket = (io, socket) => {
 
       /**
        * =====================================================
-       * GET AUTHENTICATED USER
+       * GET AUTHENTICATED SOCKET USER
        * =====================================================
        *
        * Do NOT trust senderId/senderName from frontend.
        *
-       * meetingSocket.js is responsible for setting:
-       *
-       * socket.data.user
+       * meetingSocket.js sets socket.data.user.
        */
 
       const user = socket.data?.user;
@@ -123,7 +123,7 @@ const chatSocket = (io, socket) => {
        * =====================================================
        */
 
-      const senderId = user.id || user._id?.toString();
+      const senderId = user.id || user._id?.toString() || user.userId;
 
       if (!senderId) {
         console.warn(`⚠️ Chat rejected: sender ID missing (${socket.id})`);
@@ -155,16 +155,11 @@ const chatSocket = (io, socket) => {
        * =====================================================
        * GET MEETING
        * =====================================================
-       *
-       * Your Meeting model uses:
-       *
-       * meetingId: String
-       * status: active | ended
        */
 
       const meeting = await Meeting.findOne({
         meetingId: roomId,
-      }).select("_id meetingId status isLocked");
+      }).select("_id meetingId status host");
 
       if (!meeting) {
         console.warn(`⚠️ Chat rejected: meeting not found (${roomId})`);
@@ -194,23 +189,62 @@ const chatSocket = (io, socket) => {
 
       /**
        * =====================================================
+       * VERIFY USER AUTHORIZATION
+       * =====================================================
+       *
+       * Host is allowed.
+       *
+       * Otherwise user must have a Participant
+       * record for this meeting.
+       */
+
+      const isHost =
+        meeting.host && meeting.host.toString() === senderId.toString();
+
+      if (!isHost) {
+        const participant = await Participant.findOne({
+          meeting: meeting._id,
+          user: senderId,
+        }).select("_id role");
+
+        if (!participant) {
+          console.warn(
+            `⚠️ Chat rejected: unauthorized user ${senderId} → ${roomId}`,
+          );
+
+          socket.emit(SOCKET_EVENTS.CHAT_ERROR, {
+            message: "You are not authorized to chat in this meeting.",
+          });
+
+          return;
+        }
+      }
+
+      /**
+       * =====================================================
        * CREATE DATABASE MESSAGE
        * =====================================================
        */
 
       const savedMessage = await Message.create({
         meeting: meeting._id,
+
         sender: senderId,
+
         text: trimmedText,
+
+        /*
+         * Meeting is active.
+         *
+         * Retention starts when the meeting ends.
+         */
+        expiresAt: null,
       });
 
       /**
        * =====================================================
        * CREATE SOCKET RESPONSE
        * =====================================================
-       *
-       * Keep the socket response compatible with
-       * your existing frontend ChatPanel.
        */
 
       const message = {
@@ -237,7 +271,7 @@ const chatSocket = (io, socket) => {
        *
        * IMPORTANT:
        *
-       * We broadcast only AFTER MongoDB successfully
+       * Broadcast only AFTER MongoDB successfully
        * saves the message.
        */
 

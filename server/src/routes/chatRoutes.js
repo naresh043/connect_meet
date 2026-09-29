@@ -1,8 +1,6 @@
 const express = require("express");
 
-const {
-  getChatMessages,
-} = require("../controllers/chatController");
+const { getChatMessages } = require("../controllers/chatController");
 
 const authMiddleware = require("../middleware/authMiddleware");
 
@@ -14,10 +12,6 @@ const router = express.Router();
  *
  * Authentication required.
  */
-router.get(
-  "/:meetingId/messages",
-  authMiddleware,
-  getChatMessages,
-);
+router.get("/:meetingId/messages", authMiddleware, getChatMessages);
 
 module.exports = router;

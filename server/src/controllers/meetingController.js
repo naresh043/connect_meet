@@ -2,7 +2,7 @@ const crypto = require("crypto");
 
 const Meeting = require("../models/Meeting");
 const Participant = require("../models/Participant");
-
+const Message = require("../models/Message");
 /*
 =====================================================
 GENERATE UNIQUE MEETING ID
@@ -332,10 +332,14 @@ const endMeeting = async (req, res) => {
       });
     }
 
+    const endedAt = new Date();
+
     meeting.status = "ended";
-    meeting.endedAt = new Date();
+    meeting.endedAt = endedAt;
 
     await meeting.save();
+
+    await scheduleChatExpiration(meeting._id, endedAt);
 
     // Mark active participants as left
     await Participant.updateMany(
@@ -345,7 +349,7 @@ const endMeeting = async (req, res) => {
       },
       {
         $set: {
-          leftAt: new Date(),
+          leftAt: endedAt,
         },
       },
     );
@@ -465,6 +469,50 @@ const toggleMeetingLock = async (req, res) => {
   }
 };
 
+const getChatRetentionDays = () => {
+  const days = Number(process.env.CHAT_RETENTION_DAYS || 30);
+
+  if (!Number.isFinite(days) || days < 0) {
+    return 30;
+  }
+
+  return days;
+};
+
+const scheduleChatExpiration = async (meetingObjectId, endedAt) => {
+  const retentionDays = getChatRetentionDays();
+
+  const expiresAt = new Date(
+    endedAt.getTime() + retentionDays * 24 * 60 * 60 * 1000,
+  );
+
+  await Message.updateMany(
+    {
+      meeting: meetingObjectId,
+      $or: [
+        {
+          expiresAt: null,
+        },
+        {
+          expiresAt: {
+            $gt: endedAt,
+          },
+        },
+      ],
+    },
+    {
+      $set: {
+        expiresAt,
+      },
+    },
+  );
+
+  console.log(
+    `🗑️ Chat retention scheduled | meeting=${meetingObjectId} | expires=${expiresAt.toISOString()}`,
+  );
+
+  return expiresAt;
+};
 module.exports = {
   createMeeting,
   getMyMeetings,

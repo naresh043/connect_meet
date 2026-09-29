@@ -19,8 +19,11 @@ const MAX_LIMIT = 100;
  *
  * Authorization:
  * User must be a participant or host of the meeting.
+ *
+ * Important:
+ * Chat history is available only while the meeting
+ * is active.
  */
-
 const getChatMessages = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
@@ -76,7 +79,7 @@ const getChatMessages = async (req, res, next) => {
 
     const meeting = await Meeting.findOne({
       meetingId: roomId,
-    }).select("_id meetingId status");
+    }).select("_id meetingId status host");
 
     if (!meeting) {
       return res.status(404).json({
@@ -87,19 +90,51 @@ const getChatMessages = async (req, res, next) => {
 
     /**
      * =====================================================
-     * VERIFY USER IS A MEETING PARTICIPANT
+     * VERIFY USER AUTHORIZATION
      * =====================================================
+     *
+     * Host is allowed even if there is no Participant
+     * document for the host.
      */
 
-    const participant = await Participant.findOne({
-      meeting: meeting._id,
-      user: userId,
-    }).select("_id role");
+    const isHost =
+      meeting.host && meeting.host.toString() === userId.toString();
 
-    if (!participant) {
+    let isParticipant = false;
+
+    if (!isHost) {
+      const participant = await Participant.findOne({
+        meeting: meeting._id,
+        user: userId,
+      }).select("_id role");
+
+      isParticipant = Boolean(participant);
+    }
+
+    if (!isHost && !isParticipant) {
       return res.status(403).json({
         success: false,
         message: "You are not authorized to access this meeting chat.",
+      });
+    }
+
+    /**
+     * =====================================================
+     * MEETING STATUS
+     * =====================================================
+     *
+     * Once the meeting ends, chat history is no longer
+     * accessible through the application.
+     *
+     * Messages remain in MongoDB temporarily for the
+     * configured retention period and are later removed
+     * automatically by the TTL index.
+     */
+
+    if (meeting.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Chat is no longer available because the meeting has ended.",
       });
     }
 
@@ -124,6 +159,21 @@ const getChatMessages = async (req, res, next) => {
 
     const query = {
       meeting: meeting._id,
+
+      /*
+       * Extra protection:
+       * do not return expired messages.
+       */
+      $or: [
+        {
+          expiresAt: null,
+        },
+        {
+          expiresAt: {
+            $gt: new Date(),
+          },
+        },
+      ],
     };
 
     /**
@@ -172,6 +222,7 @@ const getChatMessages = async (req, res, next) => {
     const messages = await Message.find(query)
       .sort({
         createdAt: -1,
+        _id: -1,
       })
       .limit(limit + 1)
       .populate({
@@ -243,7 +294,9 @@ const getChatMessages = async (req, res, next) => {
 
         pagination: {
           limit,
+
           hasMore,
+
           nextCursor,
         },
       },
