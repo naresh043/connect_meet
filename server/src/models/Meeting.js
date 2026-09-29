@@ -1,29 +1,54 @@
 const mongoose = require("mongoose");
 
-const messageSchema = new mongoose.Schema(
+const meetingSchema = new mongoose.Schema(
   {
-    meeting: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Meeting",
+    // Unique meeting ID shared with participants
+    meetingId: {
+      type: String,
       required: true,
+      unique: true,
       index: true,
+      trim: true,
     },
 
-    sender: {
+    // Meeting title
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 100,
+    },
+
+    // User who created the meeting
+    host: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
       index: true,
     },
 
-    text: {
+    // Meeting lifecycle status
+    status: {
       type: String,
-      required: true,
-      trim: true,
-      maxlength: 1000,
+      enum: ["active", "ended"],
+      default: "active",
+      index: true,
     },
 
-    expiresAt: {
+    // Prevent new users from joining
+    isLocked: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Meeting start time
+    startedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Meeting end time
+    endedAt: {
       type: Date,
       default: null,
     },
@@ -33,26 +58,6 @@ const messageSchema = new mongoose.Schema(
   },
 );
 
-/*
- * Chat history queries.
- */
-messageSchema.index({
-  meeting: 1,
-  createdAt: -1,
-});
+const Meeting = mongoose.model("Meeting", meetingSchema);
 
-/*
- * TTL deletion.
- */
-messageSchema.index(
-  {
-    expiresAt: 1,
-  },
-  {
-    expireAfterSeconds: 0,
-  },
-);
-
-const Message = mongoose.model("Message", messageSchema);
-
-module.exports = Message;
+module.exports = Meeting;
