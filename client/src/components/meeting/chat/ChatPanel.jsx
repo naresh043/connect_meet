@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
@@ -7,17 +7,49 @@ import ChatInput from "./ChatInput";
 import SOCKET_EVENTS from "../../../socket/socketEvents";
 import httpClient from "../../../services/httpClient";
 
+const CHAT_PAGE_SIZE = 50;
+
 const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
   const [messages, setMessages] = useState([]);
+
   const [chatError, setChatError] = useState("");
+
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+
+  const [nextCursor, setNextCursor] = useState(null);
 
   /**
    * =====================================================
-   * LOAD CHAT HISTORY
+   * MERGE MESSAGES
+   * =====================================================
+   *
+   * Keeps messages unique by message ID and sorts them
+   * chronologically.
+   */
+  const mergeMessages = useCallback((existingMessages, incomingMessages) => {
+    const messageMap = new Map();
+
+    [...existingMessages, ...incomingMessages].forEach((message) => {
+      if (!message?.id) return;
+
+      messageMap.set(message.id, message);
+    });
+
+    return Array.from(messageMap.values()).sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+    );
+  }, []);
+
+  /**
+   * =====================================================
+   * LOAD INITIAL CHAT HISTORY
    * =====================================================
    */
-
   useEffect(() => {
     if (!meetingId) return;
 
@@ -32,7 +64,7 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
           `/meetings/${encodeURIComponent(meetingId)}/messages`,
           {
             params: {
-              limit: 50,
+              limit: CHAT_PAGE_SIZE,
             },
           },
         );
@@ -41,7 +73,15 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
 
         const loadedMessages = response?.data?.data?.messages || [];
 
-        setMessages(loadedMessages);
+        const pagination = response?.data?.data?.pagination || {};
+
+        setMessages((previousMessages) =>
+          mergeMessages(previousMessages, loadedMessages),
+        );
+
+        setHasMoreMessages(Boolean(pagination.hasMore));
+
+        setNextCursor(pagination.nextCursor || null);
       } catch (error) {
         console.error("❌ Failed to load chat history:", error);
 
@@ -62,14 +102,63 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
     return () => {
       isMounted = false;
     };
-  }, [meetingId]);
+  }, [meetingId, mergeMessages]);
+
+  /**
+   * =====================================================
+   * LOAD OLDER CHAT MESSAGES
+   * =====================================================
+   */
+  const loadOlderMessages = useCallback(async () => {
+    if (!meetingId) return;
+
+    if (!hasMoreMessages) return;
+
+    if (!nextCursor) return;
+
+    if (isLoadingOlder) return;
+
+    try {
+      setIsLoadingOlder(true);
+      setChatError("");
+
+      const response = await httpClient.get(
+        `/meetings/${encodeURIComponent(meetingId)}/messages`,
+        {
+          params: {
+            limit: CHAT_PAGE_SIZE,
+            before: nextCursor,
+          },
+        },
+      );
+
+      const olderMessages = response?.data?.data?.messages || [];
+
+      const pagination = response?.data?.data?.pagination || {};
+
+      setMessages((previousMessages) =>
+        mergeMessages(previousMessages, olderMessages),
+      );
+
+      setHasMoreMessages(Boolean(pagination.hasMore));
+
+      setNextCursor(pagination.nextCursor || null);
+    } catch (error) {
+      console.error("❌ Failed to load older messages:", error);
+
+      setChatError(
+        error?.response?.data?.message || "Unable to load older messages.",
+      );
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [meetingId, hasMoreMessages, nextCursor, isLoadingOlder, mergeMessages]);
 
   /**
    * =====================================================
    * RECEIVE REAL-TIME MESSAGE
    * =====================================================
    */
-
   useEffect(() => {
     if (!socket) return;
 
@@ -87,7 +176,7 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
           return previousMessages;
         }
 
-        return [...previousMessages, message];
+        return mergeMessages(previousMessages, [message]);
       });
 
       setChatError("");
@@ -98,7 +187,6 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
      * CHAT ERROR
      * ===================================================
      */
-
     const handleChatError = (error) => {
       console.error("❌ Chat error:", error);
 
@@ -114,14 +202,13 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
 
       socket.off(SOCKET_EVENTS.CHAT_ERROR, handleChatError);
     };
-  }, [socket, meetingId]);
+  }, [socket, meetingId, mergeMessages]);
 
   /**
    * =====================================================
    * SEND MESSAGE
    * =====================================================
    */
-
   const handleSendMessage = (text) => {
     if (!socket) {
       setChatError("Chat connection is not available.");
@@ -156,17 +243,14 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
         fixed z-[150] flex flex-col overflow-hidden
         border border-slate-800 bg-slate-900
         shadow-2xl shadow-black/50
-
         inset-x-2 bottom-20 top-20
         w-auto rounded-2xl
-
         sm:left-auto
         sm:right-4
         sm:top-20
         sm:bottom-20
         sm:w-[360px]
         sm:max-w-[calc(100vw-2rem)]
-
         md:right-5
         md:w-[380px]
         md:max-w-[380px]
@@ -193,7 +277,7 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Initial loading */}
 
       {isLoadingMessages && (
         <div
@@ -211,7 +295,13 @@ const ChatPanel = ({ meetingId, currentUser, socket, onClose }) => {
 
       {/* Messages */}
 
-      <MessageList messages={messages} currentUser={currentUser} />
+      <MessageList
+        messages={messages}
+        currentUser={currentUser}
+        hasMoreMessages={hasMoreMessages}
+        isLoadingOlder={isLoadingOlder}
+        onLoadOlder={loadOlderMessages}
+      />
 
       {/* Input */}
 
